@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.blockchainjava.Controller.TransactionFormController"
+      spacing="15" alignment="CENTER">
+
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <VBox maxWidth="400" spacing="10">
+        <Label text="Create New Transaction" style="-fx-font-size: 20; -fx-font-weight: bold"/>
+
+        <TextField fx:id="receiverField" promptText="Receiver Address"/>
+        <TextField fx:id="amountField" promptText="Amount"/>
+
+        <TextArea fx:id="noteField" promptText="Transaction Note (Optional)"
+                  prefRowCount="3"/>
+
+        <Button text="Send Transaction" onAction="#handleSubmitTransaction"
+                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"
+                maxWidth="Infinity"/>
+
+        <Label fx:id="statusLabel" wrapText="true"/>
+    </VBox>
+</VBox>

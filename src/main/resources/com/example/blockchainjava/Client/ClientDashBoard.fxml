@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.blockchainjava.Controller.ClientDashboardController">
+
+    <top>
+        <HBox spacing="10" style="-fx-background-color: #2196F3; -fx-padding: 10;">
+            <Label text="Client Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="usernameLabel" style="-fx-text-fill: white;"/>
+            <Label fx:id="balanceLabel" style="-fx-text-fill: white;"/>
+            <Button text="Logout" onAction="#handleLogout"/>
+        </HBox>
+    </top>
+
+    <center>
+        <TabPane>
+            <Tab text="Send Transaction" closable="false">
+                <fx:include source="TransactionForm.fxml"/>
+            </Tab>
+            <Tab text="Transaction History" closable="false">
+                <VBox spacing="10" padding="10">
+                    <TableView fx:id="transactionTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="transactionIdColumn" text="Transaction ID"/>
+                            <TableColumn fx:id="dateColumn" text="Date"/>
+                            <TableColumn fx:id="typeColumn" text="Type"/>
+                            <TableColumn fx:id="amountColumn" text="Amount"/>
+                            <TableColumn fx:id="statusColumn" text="Status"/>
+                            <TableColumn fx:id="blockIdColumn" text="Block ID"/>
+                        </columns>
+                    </TableView>
+                    <HBox spacing="10">
+                        <Button text="Refresh" onAction="#refreshTransactions"/>
+                    </HBox>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </center>
+</BorderPane>
