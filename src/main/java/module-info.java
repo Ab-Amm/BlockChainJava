@@ -10,6 +10,8 @@ module com.example.blockchainjava {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
+    requires java.sql;
+    requires jbcrypt;
 
     opens com.example.blockchainjava to javafx.fxml;
     exports com.example.blockchainjava;

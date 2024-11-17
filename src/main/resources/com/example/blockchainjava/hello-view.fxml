@@ -1,16 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.VBox?>
 
-<?import javafx.scene.control.Button?>
-<VBox alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.example.blockchainjava.HelloController">
+<VBox alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.blockchainjava.MainController">
+
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
     </padding>
 
-    <Label fx:id="welcomeText"/>
-    <Button text="Hello!" onAction="#onHelloButtonClick"/>
+    <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE">
+        <Tab fx:id="loginTab" text="Login">
+            <VBox spacing="10" alignment="CENTER">
+                <padding>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
+                </padding>
+
+                <Label text="Welcome to Blockchain Application"
+                       style="-fx-font-size: 24px; -fx-font-weight: bold"/>
+
+                <VBox spacing="10" maxWidth="300">
+                    <TextField fx:id="loginUsername" promptText="Username"/>
+                    <PasswordField fx:id="loginPassword" promptText="Password"/>
+                    <Button text="Login" onAction="#handleLogin"
+                            style="-fx-background-color: #4CAF50; -fx-text-fill: white;"
+                            maxWidth="Infinity"/>
+                </VBox>
+            </VBox>
+        </Tab>
+
+        <Tab fx:id="signupTab" text="Sign Up">
+            <VBox spacing="10" alignment="CENTER">
+                <padding>
+                    <Insets top="20" right="20" bottom="20" left="20"/>
+                </padding>
+
+                <Label text="Create New Account"
+                       style="-fx-font-size: 24px; -fx-font-weight: bold"/>
+
+                <VBox spacing="10" maxWidth="300">
+                    <TextField fx:id="signupUsername" promptText="Username"/>
+                    <PasswordField fx:id="signupPassword" promptText="Password"/>
+                    <PasswordField fx:id="signupConfirmPassword" promptText="Confirm Password"/>
+                    <TextField fx:id="signupEmail" promptText="Email"/>
+                    <ComboBox fx:id="roleComboBox" maxWidth="Infinity" promptText="Select Role"/>
+                    <Button text="Sign Up" onAction="#handleSignup"
+                            style="-fx-background-color: #2196F3; -fx-text-fill: white;"
+                            maxWidth="Infinity"/>
+                </VBox>
+            </VBox>
+        </Tab>
+    </TabPane>
 </VBox>
