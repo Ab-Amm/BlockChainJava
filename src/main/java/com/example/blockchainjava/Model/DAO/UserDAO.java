@@ -15,14 +15,13 @@ public class UserDAO {
     }
 
     public void saveUser(User user) {
-        String sql = "INSERT INTO users (id, username, password, role, created_at) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, role, created_at , password) VALUES ( ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, user.getId());
-            stmt.setString(2, user.getUsername());
-            stmt.setString(3, user.getPassword());
-            stmt.setString(5, user.getRole().toString());
-            stmt.setTimestamp(6, Timestamp.valueOf(user.getCreatedAt()));
+            stmt.setString(1, user.getUsername());
+            stmt.setString(2, (user.getRole()).toString());
+            stmt.setTimestamp(3, Timestamp.valueOf(user.getCreatedAt()));
+            stmt.setString(4, user.getPassword());
             stmt.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save user: " + user.getUsername(), e);

@@ -7,6 +7,7 @@ import com.example.blockchainjava.Controller.ClientDashboardController;
 import com.example.blockchainjava.Controller.AdminDashboardController;
 import com.example.blockchainjava.Controller.ValidatorDashboardController;
 import com.example.blockchainjava.Controller.TransactionFormController;
+import javafx.collections.FXCollections;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -40,8 +41,8 @@ public class MainController {
     @FXML
     public void initialize() {
         // Initialize role combo box
-        roleComboBox.getItems().addAll(UserRole.CLIENT);  // Only allow client registration
-        roleComboBox.setValue(UserRole.CLIENT);
+        roleComboBox.getItems().addAll(UserRole.CLIENT);
+        roleComboBox.setItems(FXCollections.observableArrayList(UserRole.values()));
     }
 
     @FXML
@@ -73,7 +74,6 @@ public class MainController {
         String password = signupPassword.getText();
         String confirmPassword = signupConfirmPassword.getText();
         UserRole role = roleComboBox.getValue();
-
         // Validate input
         if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() ) {
             showAlert(Alert.AlertType.ERROR, "Signup Error", "Please fill in all fields");
@@ -113,29 +113,31 @@ public class MainController {
 
     private void openDashboard(User user) {
         try {
+            // Définissez le chemin relatif du fichier FXML en fonction du rôle de l'utilisateur
             String fxmlPath = switch (user.getRole()) {
-                case CLIENT -> "/fxml/client/ClientDashboard.fxml";
-                case VALIDATOR -> "/fxml/validator/ValidatorDashboard.fxml";
-                case ADMIN -> "/fxml/admin/AdminDashboard.fxml";
+                case CLIENT -> "/com/example/blockchainjava/Client/ClientDashBoard.fxml";
+                case VALIDATOR -> "/com/example/blockchainjava/Validator/ValidatorDashboard.fxml";
+                case ADMIN -> "/com/example/blockchainjava/Admin/AdminDashboard.fxml";
             };
 
+            // Utilisez getClass().getResource() pour charger le fichier FXML avec le chemin relatif
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
             Parent dashboard = loader.load();
 
-            // Set user in controller
+            // Affecter l'utilisateur au contrôleur approprié
             switch (user.getRole()) {
                 case CLIENT -> ((ClientDashboardController) loader.getController()).setClient((Client) user);
                 case VALIDATOR -> ((ValidatorDashboardController) loader.getController()).setValidator((Validator) user);
                 case ADMIN -> ((AdminDashboardController) loader.getController()).setAdmin((Admin) user);
             }
 
-            // Create new scene and stage
+            // Créer la nouvelle scène et la nouvelle fenêtre (stage)
             Stage dashboardStage = new Stage();
             dashboardStage.setScene(new Scene(dashboard));
             dashboardStage.setTitle(user.getRole() + " Dashboard - " + user.getUsername());
             dashboardStage.show();
 
-            // Close the login window
+            // Fermer la fenêtre de connexion
             ((Stage) loginUsername.getScene().getWindow()).close();
 
         } catch (Exception e) {
@@ -143,6 +145,7 @@ public class MainController {
             e.printStackTrace();
         }
     }
+
 
     private void showAlert(Alert.AlertType type, String title, String content) {
         Alert alert = new Alert(type);
@@ -155,7 +158,6 @@ public class MainController {
         signupUsername.clear();
         signupPassword.clear();
         signupConfirmPassword.clear();
-        signupEmail.clear();
         roleComboBox.setValue(UserRole.CLIENT);
     }
 }

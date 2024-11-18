@@ -12,7 +12,7 @@
             <Label text="Validator Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="validatorAddressLabel" style="-fx-text-fill: white;"/>
-            <Button text="Logout" onAction="#handleLogout"/>
+           <!-- <Button text="Logout" onAction="#handleLogout"/> -->
         </HBox>
     </top>
 
@@ -45,7 +45,7 @@
                 <HBox spacing="10" padding="10">
                     <Button text="Validate Selected" onAction="#validateTransaction"
                             style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
-                    <Button text="Reject Selected" onAction="#rejectTransaction"
+                    <!-- <Button text="Reject Selected" onAction="#rejectTransaction" -->
                             style="-fx-background-color: #f44336; -fx-text-fill: white;"/>
                 </HBox>
             </VBox>

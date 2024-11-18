@@ -15,6 +15,7 @@ public class DatabaseConnection {
         if (connection == null) {
             try {
                 connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                System.out.println("connected successfully to database blockchain");
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to connect to database", e);
             }

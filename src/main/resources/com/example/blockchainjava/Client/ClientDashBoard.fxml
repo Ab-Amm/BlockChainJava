@@ -4,20 +4,19 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 
-<BorderPane xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.example.blockchainjava.Controller.ClientDashboardController">
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.Controller.ClientDashboardController" >
 
     <top>
         <HBox spacing="10" style="-fx-background-color: #2196F3; -fx-padding: 10;">
             <Label text="Client Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="usernameLabel" style="-fx-text-fill: white;"/>
-            <Label fx:id="balanceLabel" style="-fx-text-fill: white;"/>
-            <Button text="Logout" onAction="#handleLogout"/>
+            <!-- <Label fx:id="balanceLabel" style="-fx-text-fill: white;"/> -->
+            <!-- <Button text="Logout" onAction="#handleLogout"/> -->
         </HBox>
     </top>
 
-    <center>
+    <!-- <center>
         <TabPane>
             <Tab text="Send Transaction" closable="false">
                 <fx:include source="TransactionForm.fxml"/>
@@ -35,10 +34,10 @@
                         </columns>
                     </TableView>
                     <HBox spacing="10">
-                        <Button text="Refresh" onAction="#refreshTransactions"/>
+                         <Button text="Refresh" onAction="#refreshTransactions"/>
                     </HBox>
                 </VBox>
             </Tab>
         </TabPane>
-    </center>
+    </center> -->
 </BorderPane>

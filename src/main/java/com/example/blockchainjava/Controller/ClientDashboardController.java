@@ -20,7 +20,7 @@ public class ClientDashboardController {
     private void updateDashboard() {
         if (client != null) {
             usernameLabel.setText(client.getUsername());
-            balanceLabel.setText(String.format("$%.2f", client.getBalance()));
+            //balanceLabel.setText(String.format("$%.2f", client.getBalance()));
         }
     }
 }
