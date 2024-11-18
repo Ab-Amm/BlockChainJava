@@ -72,11 +72,10 @@ public class MainController {
         String username = signupUsername.getText();
         String password = signupPassword.getText();
         String confirmPassword = signupConfirmPassword.getText();
-        String email = signupEmail.getText();
         UserRole role = roleComboBox.getValue();
 
         // Validate input
-        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() || email.isEmpty()) {
+        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() ) {
             showAlert(Alert.AlertType.ERROR, "Signup Error", "Please fill in all fields");
             return;
         }
@@ -95,7 +94,7 @@ public class MainController {
 
             // Create new user based on role
             User newUser = switch (role) {
-                case CLIENT -> new Client(username, password, email);
+                case CLIENT -> new Client(username, password);
                 default -> throw new IllegalStateException("Unexpected role: " + role);
             };
 

@@ -9,15 +9,13 @@ public class User {
     private String id;
     private String username;
     private String password; // Stored hashed
-    private String email;
     private UserRole role;
     private LocalDateTime createdAt;
 
-    public User(String username, String password, String email, UserRole role) {
+    public User(String username, String password, UserRole role) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
         this.password = HashUtil.hashPassword(password);
-        this.email = email;
         this.role = role;
         this.createdAt = LocalDateTime.now();
     }
@@ -48,13 +46,7 @@ public class User {
         this.password = password;
     }
 
-    public String getEmail() {
-        return email;
-    }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
 
     public UserRole getRole() {
         return role;
@@ -77,7 +69,7 @@ public class User {
         return "User{" +
                 "id='" + id + '\'' +
                 ", username='" + username + '\'' +
-                ", email='" + email + '\'' +
+
                 ", role=" + role +
                 ", createdAt=" + createdAt +
                 '}';

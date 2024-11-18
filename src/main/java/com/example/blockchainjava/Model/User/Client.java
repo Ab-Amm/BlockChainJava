@@ -9,8 +9,8 @@ public class Client extends User {
     private double balance;
     private List<Transaction> transactions;
 
-    public Client(String username, String password, String email) {
-        super(username, password, email, UserRole.CLIENT);
+    public Client(String username, String password) {
+        super(username, password, UserRole.CLIENT);
         this.balance = 0.0;
         this.transactions = new ArrayList<>();
     }

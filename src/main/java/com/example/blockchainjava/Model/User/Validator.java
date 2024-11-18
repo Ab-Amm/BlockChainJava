@@ -15,8 +15,8 @@ public class Validator extends User {
     private String privateKey;
     private boolean isActive;
 
-    public Validator(String username, String password, String email) throws NoSuchAlgorithmException {
-        super(username, password, email, UserRole.VALIDATOR);
+    public Validator(String username, String password) throws NoSuchAlgorithmException {
+        super(username, password, UserRole.VALIDATOR);
         generateKeyPair();
         this.validatorAddress = HashUtil.generateAddress(publicKey);
         this.isActive = true;

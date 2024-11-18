@@ -15,18 +15,17 @@ public class UserDAO {
     }
 
     public void saveUser(User user) {
-        String sql = "INSERT INTO users (id, username, password, email, role, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (id, username, password, role, created_at) VALUES (?, ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, user.getId());
             stmt.setString(2, user.getUsername());
             stmt.setString(3, user.getPassword());
-            stmt.setString(4, user.getEmail());
             stmt.setString(5, user.getRole().toString());
             stmt.setTimestamp(6, Timestamp.valueOf(user.getCreatedAt()));
             stmt.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to save user", e);
+            throw new RuntimeException("Failed to save user: " + user.getUsername(), e);
         }
     }
 
@@ -39,51 +38,54 @@ public class UserDAO {
 
             if (rs.next()) {
                 UserRole role = UserRole.valueOf(rs.getString("role"));
-                switch (role) {
-                    case CLIENT:
-                        return new Client(
-                                rs.getString("username"),
-                                rs.getString("password"),
-                                rs.getString("email")
-                        );
-                    case VALIDATOR:
-                        return new Validator(
-                                rs.getString("username"),
-                                rs.getString("password"),
-                                rs.getString("email")
-                        );
-                    case ADMIN:
-                        return new Admin(
-                                rs.getString("username"),
-                                rs.getString("password"),
-                                rs.getString("email")
-                        );
-                    default:
-                        throw new IllegalStateException("Unknown user role: " + role);
-                }
+                return createUserFromResultSet(rs, role);
             }
-        } catch (SQLException | NoSuchAlgorithmException e) {
-            throw new RuntimeException("Failed to load user", e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load user with username: " + username, e);
+        } catch (IllegalStateException e) {
+            throw new RuntimeException("Unknown role for user: " + username, e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
         return null;
     }
 
-    public Validator getValidators() {
+    private User createUserFromResultSet(ResultSet rs, UserRole role) throws SQLException, NoSuchAlgorithmException {
+        return switch (role) {
+            case CLIENT -> new Client(
+                    rs.getString("username"),
+                    rs.getString("password")
+            );
+            case VALIDATOR -> new Validator(
+                    rs.getString("username"),
+                    rs.getString("password")
+            );
+            case ADMIN -> new Admin(
+                    rs.getString("username"),
+                    rs.getString("password")
+            );
+            default -> throw new IllegalStateException("Unknown user role: " + role);
+        };
+    }
+
+    public List<Validator> getValidators() {
         List<Validator> validatorList = new ArrayList<>();
         String sql = "SELECT * FROM users WHERE role = 'VALIDATOR'";
+
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 Validator validator = new Validator(
                         rs.getString("username"),
-                        rs.getString("password"),
-                        rs.getString("email")
+                        rs.getString("password")
                 );
                 validatorList.add(validator);
             }
-        } catch (SQLException | NoSuchAlgorithmException e) {
+        } catch (SQLException e) {
             throw new RuntimeException("Failed to load validators", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
-        return (Validator) validatorList;
+        return validatorList;
     }
 }
