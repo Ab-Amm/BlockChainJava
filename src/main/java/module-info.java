@@ -2,6 +2,8 @@ module com.example.blockchainjava {
     requires javafx.controls;
     requires javafx.fxml;
     requires javafx.web;
+    exports com.example.blockchainjava.Controller to javafx.fxml;
+    opens com.example.blockchainjava.Controller to javafx.fxml;
 
     requires org.controlsfx.controls;
     requires com.dlsc.formsfx;
