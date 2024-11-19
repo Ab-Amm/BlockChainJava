@@ -1,5 +1,7 @@
 package com.example.blockchainjava.Model.DAO;
 
+import com.example.blockchainjava.Util.Security.HashUtil;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
