@@ -15,7 +15,7 @@ public class User {
     public User(String username, String password, UserRole role) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
-        this.password = HashUtil.hashPassword(password);
+        this.password = password;
         this.role = role;
         this.createdAt = LocalDateTime.now();
     }
