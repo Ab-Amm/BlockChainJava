@@ -15,6 +15,6 @@ module com.example.blockchainjava {
     requires java.sql;
     requires jbcrypt;
 
-    opens com.example.blockchainjava to javafx.fxml;
     exports com.example.blockchainjava;
+    opens com.example.blockchainjava to javafx.fxml;
 }

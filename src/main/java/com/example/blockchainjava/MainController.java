@@ -19,6 +19,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 
 import java.io.IOException;
+import java.net.URL;
 
 public class MainController {
     @FXML private TabPane mainTabPane;
@@ -113,38 +114,88 @@ public class MainController {
 
     private void openDashboard(User user) {
         try {
-            // Définissez le chemin relatif du fichier FXML en fonction du rôle de l'utilisateur
+            // Vérification 1 : L'utilisateur n'est pas nul
+            if (user == null) {
+                showAlert(Alert.AlertType.ERROR, "Error", "User object is null");
+                System.err.println("User object is null");
+                return;
+            }
+
+            // Affichage du rôle de l'utilisateur
+            System.out.println("User role: " + user.getRole());
+
+            // Définir le chemin relatif du fichier FXML en fonction du rôle de l'utilisateur
             String fxmlPath = switch (user.getRole()) {
                 case CLIENT -> "/com/example/blockchainjava/Client/ClientDashBoard.fxml";
                 case VALIDATOR -> "/com/example/blockchainjava/Validator/ValidatorDashboard.fxml";
                 case ADMIN -> "/com/example/blockchainjava/Admin/AdminDashboard.fxml";
+                default -> null; // Pour détecter un rôle inconnu
             };
 
-            // Utilisez getClass().getResource() pour charger le fichier FXML avec le chemin relatif
-            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
-            Parent dashboard = loader.load();
-
-            // Affecter l'utilisateur au contrôleur approprié
-            switch (user.getRole()) {
-                case CLIENT -> ((ClientDashboardController) loader.getController()).setClient((Client) user);
-                case VALIDATOR -> ((ValidatorDashboardController) loader.getController()).setValidator((Validator) user);
-                case ADMIN -> ((AdminDashboardController) loader.getController()).setAdmin((Admin) user);
+            // Vérification 2 : Le chemin FXML n'est pas nul
+            if (fxmlPath == null) {
+                showAlert(Alert.AlertType.ERROR, "Error", "Unknown user role: " + user.getRole());
+                System.err.println("Unknown user role: " + user.getRole());
+                return;
             }
 
-            // Créer la nouvelle scène et la nouvelle fenêtre (stage)
+            // Vérification 3 : Vérifier si le fichier FXML existe
+            URL fxmlUrl = getClass().getResource(fxmlPath);
+            if (fxmlUrl == null) {
+                showAlert(Alert.AlertType.ERROR, "Error", "FXML file not found at path: " + fxmlPath);
+                System.err.println("FXML file not found at path: " + fxmlPath);
+                return;
+            } else {
+                System.out.println("FXML file found at: " + fxmlUrl);
+            }
+
+            // Charger le fichier FXML
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            Parent dashboard = null;
+
+            // Vérification 4 : Tenter de charger le fichier FXML
+            try {
+                dashboard = loader.load();
+                System.out.println("FXML loaded successfully: " + fxmlPath);
+            } catch (Exception e) {
+                System.err.println("Failed to load FXML file: " + fxmlPath);
+                e.printStackTrace();
+                showAlert(Alert.AlertType.ERROR, "Error", "Could not load FXML file");
+                return;
+            }
+
+            // Vérification 5 : Affecter l'utilisateur au contrôleur
+            try {
+                switch (user.getRole()) {
+                    case CLIENT -> ((ClientDashboardController) loader.getController()).setClient((Client) user);
+                    case VALIDATOR -> ((ValidatorDashboardController) loader.getController()).setValidator((Validator) user);
+                    case ADMIN -> ((AdminDashboardController) loader.getController()).setAdmin((Admin) user);
+                }
+                System.out.println("Controller set successfully for role: " + user.getRole());
+            } catch (Exception e) {
+                System.err.println("Failed to set controller for role: " + user.getRole());
+                e.printStackTrace();
+                showAlert(Alert.AlertType.ERROR, "Error", "Could not set controller");
+                return;
+            }
+
+            // Créer la nouvelle scène et la fenêtre
             Stage dashboardStage = new Stage();
             dashboardStage.setScene(new Scene(dashboard));
             dashboardStage.setTitle(user.getRole() + " Dashboard - " + user.getUsername());
             dashboardStage.show();
+            System.out.println("Dashboard opened successfully for: " + user.getUsername());
 
             // Fermer la fenêtre de connexion
             ((Stage) loginUsername.getScene().getWindow()).close();
 
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Could not open dashboard");
+            System.err.println("Unexpected error in openDashboard method");
             e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Error", "Could not open dashboard");
         }
     }
+
 
 
     private void showAlert(Alert.AlertType type, String title, String content) {
