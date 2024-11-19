@@ -50,7 +50,7 @@
                     <PasswordField fx:id="signupPassword" promptText="Password"/>
                     <PasswordField fx:id="signupConfirmPassword" promptText="Confirm Password"/>
                     <ComboBox fx:id="roleComboBox" promptText="Select Role" maxWidth="Infinity">
-                        <!-- Default role options -->
+
                         <items>
                             <FXCollections fx:factory="observableArrayList">
                                 <String fx:value="CLIENT"/>
