@@ -3,20 +3,20 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
+<?import com.example.blockchainjava.Controller.*?>
 
-<BorderPane xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.example.blockchainjava.Controller.AdminDashboardController">
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.Controller.AdminDashboardController">
 
     <top>
         <HBox spacing="10" style="-fx-background-color: #FF5722; -fx-padding: 10;">
             <Label text="Admin Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="adminNameLabel" style="-fx-text-fill: white;"/>
-            <Button text="Logout" onAction="#handleLogout"/>
+            <!--<Button text="Logout" onAction="#handleLogout"/>-->
         </HBox>
     </top>
 
-    <center>
+    <!--<center>
         <TabPane>
             <Tab text="Validators Management" closable="false">
                 <VBox spacing="10" padding="10">
@@ -77,5 +77,5 @@
                 </GridPane>
             </Tab>
         </TabPane>
-    </center>
+    </center>-->
 </BorderPane>
