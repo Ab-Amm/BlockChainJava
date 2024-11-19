@@ -61,7 +61,7 @@ public class MainController {
             User user = userDAO.getUserByUsername(username);
             user.toString();
             if (user != null && HashUtil.verifyPassword(password, user.getPassword())) {
-                openDashboard(user);
+                openDashboard(user);  // Ouvre le dashboard approprié en fonction du rôle
             } else {
                 showAlert(Alert.AlertType.ERROR, "Login Error", "Invalid username or password");
             }
@@ -70,6 +70,7 @@ public class MainController {
             e.printStackTrace();
         }
     }
+
 
     @FXML
     private void handleSignup() {
@@ -98,8 +99,11 @@ public class MainController {
             // Create new user based on role
             User newUser = switch (role) {
                 case CLIENT -> new Client(username, password);
+                case VALIDATOR -> new Validator(username, password);  // Ajouter le cas pour VALIDATOR
+                case ADMIN -> new Admin(username, password);  // Ajouter le cas pour ADMIN si ce n'est pas déjà le cas
                 default -> throw new IllegalStateException("Unexpected role: " + role);
             };
+
 
             // Save user to database
             userDAO.saveUser(newUser);

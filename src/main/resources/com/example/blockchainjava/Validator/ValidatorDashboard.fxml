@@ -12,52 +12,56 @@
             <Label text="Validator Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="validatorAddressLabel" style="-fx-text-fill: white;"/>
-           <!-- <Button text="Logout" onAction="#handleLogout"/> -->
+            <!-- Bouton Logout (activer si besoin) -->
+            <!-- <Button text="Logout" onAction="#handleLogout"/> -->
         </HBox>
     </top>
 
     <center>
         <SplitPane dividerPositions="0.6" VBox.vgrow="ALWAYS">
-            <VBox spacing="10">
-                <Label text="Blockchain Blocks" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
-                <TableView fx:id="blockTable" VBox.vgrow="ALWAYS">
-                    <columns>
-                        <TableColumn fx:id="blockIdColumn" text="Block ID"/>
-                        <TableColumn fx:id="timestampColumn" text="Timestamp"/>
-                        <TableColumn fx:id="previousHashColumn" text="Previous Hash"/>
-                        <TableColumn fx:id="hashColumn" text="Hash"/>
-                        <TableColumn fx:id="transactionCountColumn" text="Transaction"/>
-                    </columns>
-                </TableView>
-            </VBox>
+            <items>
+                <VBox spacing="10">
+                    <Label text="Blockchain Blocks" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
+                    <TableView fx:id="blockTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="blockIdColumn" text="Block ID"/>
+                            <TableColumn fx:id="timestampColumn" text="Timestamp"/>
+                            <TableColumn fx:id="previousHashColumn" text="Previous Hash"/>
+                            <TableColumn fx:id="hashColumn" text="Hash"/>
+                            <TableColumn fx:id="transactionCountColumn" text="Transaction"/>
+                        </columns>
+                    </TableView>
+                </VBox>
 
-            <VBox spacing="10">
-                <Label text="Pending Transactions" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
-                <TableView fx:id="pendingTransactionsTable" VBox.vgrow="ALWAYS">
-                    <columns>
-                        <TableColumn fx:id="pendingTxIdColumn" text="Transaction ID"/>
-                        <TableColumn fx:id="senderColumn" text="Sender"/>
-                        <TableColumn fx:id="receiverColumn" text="Receiver"/>
-                        <TableColumn fx:id="amountColumn" text="Amount"/>
-                        <TableColumn fx:id="timestampTxColumn" text="Timestamp"/>
-                    </columns>
-                </TableView>
-                <HBox spacing="10" padding="10">
-                    <Button text="Validate Selected" onAction="#validateTransaction"
-                            style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
-                    <!-- <Button text="Reject Selected" onAction="#rejectTransaction" -->
-                            style="-fx-background-color: #f44336; -fx-text-fill: white;"/>
-                </HBox>
-            </VBox>
+                <VBox spacing="10">
+                    <Label text="Pending Transactions" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
+                    <TableView fx:id="pendingTransactionsTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="pendingTxIdColumn" text="Transaction ID"/>
+                            <TableColumn fx:id="senderColumn" text="Sender"/>
+                            <TableColumn fx:id="receiverColumn" text="Receiver"/>
+                            <TableColumn fx:id="amountColumn" text="Amount"/>
+                            <TableColumn fx:id="timestampTxColumn" text="Timestamp"/>
+                        </columns>
+                    </TableView>
+                    <HBox spacing="10" style="-fx-padding: 10;">
+                        <Button text="Validate Selected" onAction="#validateTransaction"
+                                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+                        <!-- Bouton Rejection (activer si besoin) -->
+                        <!-- <Button text="Reject Selected" onAction="#rejectTransaction"
+                                style="-fx-background-color: #f44336; -fx-text-fill: white;"/> -->
+                    </HBox>
+                </VBox>
+            </items>
         </SplitPane>
     </center>
 
     <bottom>
         <HBox spacing="10" style="-fx-padding: 10;">
-            <Label text="Status: " style="-fx-font-weight: bold"/>
+            <Label text="Status: " style="-fx-font-weight: bold;"/>
             <Label fx:id="statusLabel"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Label text="Connected Peers: " style="-fx-font-weight: bold"/>
+            <Label text="Connected Peers: " style="-fx-font-weight: bold;"/>
             <Label fx:id="peerCountLabel"/>
         </HBox>
     </bottom>
