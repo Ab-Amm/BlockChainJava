@@ -16,21 +16,24 @@ public class UserDAO {
     }
 
     public void saveUser(User user) {
-        String sql = "INSERT INTO users (username, role, created_at, password) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, role, created_at, password, public_key, private_key) VALUES (?, ?, ?, ?, ?, ?)";
 
-        // Hacher le mot de passe avant de le stocker
+        // Hash the password before storing
         String hashedPassword = HashUtil.hashPassword(user.getPassword());
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, user.getUsername());
             stmt.setString(2, user.getRole().toString());
             stmt.setTimestamp(3, Timestamp.valueOf(user.getCreatedAt()));
-            stmt.setString(4, hashedPassword); // Stocker le mot de passe haché
+            stmt.setString(4, hashedPassword);
+            stmt.setString(5, user.getPublicKey());
+            stmt.setString(6, user.getPrivateKey());
             stmt.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save user: " + user.getUsername(), e);
         }
     }
+
 
 
     public User getUserByUsername(String username) {
@@ -42,7 +45,11 @@ public class UserDAO {
 
             if (rs.next()) {
                 UserRole role = UserRole.valueOf(rs.getString("role"));
-                return createUserFromResultSet(rs, role);
+                User user = createUserFromResultSet(rs, role);
+                // Set public and private keys
+                user.setPublicKey(rs.getString("public_key"));
+                user.setPrivateKey(rs.getString("private_key"));
+                return user;
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to load user with username: " + username, e);
@@ -55,7 +62,7 @@ public class UserDAO {
     }
 
     private User createUserFromResultSet(ResultSet rs, UserRole role) throws SQLException, NoSuchAlgorithmException {
-        return switch (role) {
+        User user = switch (role) {
             case CLIENT -> new Client(
                     rs.getString("username"),
                     rs.getString("password")
@@ -70,7 +77,14 @@ public class UserDAO {
             );
             default -> throw new IllegalStateException("Unknown user role: " + role);
         };
+
+        // Set public and private keys
+        user.setPublicKey(rs.getString("public_key"));
+        user.setPrivateKey(rs.getString("private_key"));
+
+        return user;
     }
+
 
     public List<Validator> getValidators() {
         List<Validator> validatorList = new ArrayList<>();
