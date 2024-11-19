@@ -50,6 +50,7 @@ public class MainController {
     private void handleLogin() {
         String username = loginUsername.getText();
         String password = loginPassword.getText();
+        System.out.println("values "+username + " " + password);
 
         if (username.isEmpty() || password.isEmpty()) {
             showAlert(Alert.AlertType.ERROR, "Login Error", "Please fill in all fields");
@@ -58,6 +59,7 @@ public class MainController {
 
         try {
             User user = userDAO.getUserByUsername(username);
+            user.toString();
             if (user != null && HashUtil.verifyPassword(password, user.getPassword())) {
                 openDashboard(user);
             } else {

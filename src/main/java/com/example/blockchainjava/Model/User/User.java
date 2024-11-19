@@ -1,8 +1,9 @@
 package com.example.blockchainjava.Model.User;
 
-import com.example.blockchainjava.Util.Security.HashUtil;
-
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.UUID;
 
 public class User {
@@ -11,6 +12,8 @@ public class User {
     private String password; // Stored hashed
     private UserRole role;
     private LocalDateTime createdAt;
+    private String privateKey;
+    private String publicKey;
 
     public User(String username, String password, UserRole role) {
         this.id = UUID.randomUUID().toString();
@@ -18,6 +21,7 @@ public class User {
         this.password = password;
         this.role = role;
         this.createdAt = LocalDateTime.now();
+        generateKeys();
     }
 
 
@@ -73,5 +77,34 @@ public class User {
                 ", role=" + role +
                 ", createdAt=" + createdAt +
                 '}';
+    }
+
+    private void generateKeys() {
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(2048);
+            KeyPair keyPair = keyPairGenerator.generateKeyPair();
+
+            this.privateKey = Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded());
+            this.publicKey = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String getPublicKey() {
+        return publicKey;
+    }
+
+    public void setPublicKey(String publicKey) {
+        this.publicKey = publicKey;
+    }
+
+    public String getPrivateKey() {
+        return privateKey;
+    }
+
+    public void setPrivateKey(String privateKey) {
+        this.privateKey = privateKey;
     }
 }
