@@ -17,16 +17,26 @@ import java.util.List;
 
 public class AdminDashboardController {
 
-    @FXML private Label adminNameLabel;
-    @FXML private TextField usernameField;
-    @FXML private PasswordField passwordField;
-    @FXML private TextField balanceField;
-    @FXML private TextField ipField;
-    @FXML private TextField portField;
-    @FXML private VBox addValidatorForm;
-    @FXML private VBox editValidatorForm;
-    @FXML private VBox deleteValidatorForm;
-    @FXML private VBox validatorActionsPane;
+    @FXML
+    private Label adminNameLabel;
+    @FXML
+    private TextField usernameField;
+    @FXML
+    private PasswordField passwordField;
+    @FXML
+    private TextField balanceField;
+    @FXML
+    private TextField ipField;
+    @FXML
+    private TextField portField;
+    @FXML
+    private VBox addValidatorForm;
+    @FXML
+    private VBox editValidatorForm;
+    @FXML
+    private VBox deleteValidatorForm;
+    @FXML
+    private VBox validatorActionsPane;
     @FXML
     private Button manageValidatorsButton;
     @FXML
@@ -35,6 +45,9 @@ public class AdminDashboardController {
     private TextField newBalanceField;
     @FXML
     private ComboBox<Validator> validatorDeleteComboBox;
+    private Admin admin;
+    private UserDAO userDAO;
+    private ObservableList<Validator> validatorList;
 
 
     @FXML
@@ -43,6 +56,113 @@ public class AdminDashboardController {
         editValidatorForm.setVisible(true);
         // Initialiser la ComboBox avec les validateurs existants
         validatorSelectComboBox.setItems(validatorList);
+    }
+
+    public AdminDashboardController() {
+        userDAO = new UserDAO();
+    }
+
+    public void setAdmin(Admin admin) {
+        this.admin = admin;
+    }
+
+    private List<String> getValidatorsFromDatabase() {
+        // Exemple de récupération depuis la base de données
+        // Vous devrez adapter cette méthode pour correspondre à votre modèle de données
+        List<String> validators = new ArrayList<>();
+        // Ajoutez votre logique pour récupérer les validateurs ici
+        // Par exemple : `validators.add(validator.getUsername());`
+        return validators;
+    }
+
+    @FXML
+    public void initialize() {
+        // Configuration du nom de l'administrateur
+        if (admin != null) {
+            adminNameLabel.setText(admin.getUsername());
+        }
+
+        // Initialisation de la liste des validateurs
+        validatorList = FXCollections.observableArrayList();
+        updateValidatorList();
+
+        // Configuration des ComboBox
+        setupComboBox(validatorSelectComboBox);
+        setupComboBox(validatorDeleteComboBox);
+    }
+
+    private void setupComboBox(ComboBox<Validator> comboBox) {
+        comboBox.setCellFactory(param -> new ListCell<Validator>() {
+            @Override
+            protected void updateItem(Validator item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.getUsername() + " - " + item.getBalance());
+                }
+            }
+        });
+        comboBox.setButtonCell(new ListCell<Validator>() {
+            @Override
+            protected void updateItem(Validator item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.getUsername() + " - " + item.getBalance());
+                }
+            }
+        });
+    }
+
+    private void updateValidatorList() {
+        // Rafraîchir la liste des validateurs
+        validatorList.clear();
+        List<Validator> validatorsFromDB = userDAO.getValidators();
+        if (validatorsFromDB != null) {
+            validatorList.addAll(validatorsFromDB);
+        }
+
+        // Mettre à jour les ComboBox
+        validatorSelectComboBox.setItems(FXCollections.observableArrayList(validatorList));
+        validatorDeleteComboBox.setItems(FXCollections.observableArrayList(validatorList));
+    }
+
+    @FXML
+    public void handleAddValidator(ActionEvent actionEvent) {
+        String username = usernameField.getText();
+        String password = passwordField.getText();
+        String balanceInput = balanceField.getText();
+        String ipAddress = ipField.getText();
+        String portInput = portField.getText();
+
+        if (username.isEmpty() || password.isEmpty() || balanceInput.isEmpty() || ipAddress.isEmpty() || portInput.isEmpty()) {
+            showErrorMessage("Tous les champs sont obligatoires !");
+            return;
+        }
+
+        try {
+            double balance = Double.parseDouble(balanceInput);
+            int port = Integer.parseInt(portInput);
+
+            // Création de l'utilisateur et du validateur
+            User newUser = new User(username, password, UserRole.VALIDATOR );
+            Validator validator = new Validator(username, password, ipAddress, port , balance);
+
+            // Enregistrement dans la base de données
+            userDAO.saveUser(newUser, balance);
+            userDAO.saveValidator(validator, ipAddress, port);
+
+            // Rafraîchir la liste
+            updateValidatorList();
+            showInfoMessage("Validateur ajouté avec succès !");
+        } catch (NumberFormatException e) {
+            showErrorMessage("Le solde et le port doivent être des nombres valides !");
+        } catch (Exception e) {
+            showErrorMessage("Une erreur est survenue lors de l'ajout du validateur.");
+            e.printStackTrace();
+        }
     }
 
     @FXML
@@ -62,12 +182,11 @@ public class AdminDashboardController {
         try {
             double newBalance = Double.parseDouble(newBalanceInput);
 
-            // Mise à jour du solde dans la base de données
+            // Mise à jour du solde
             userDAO.updateValidatorBalance(selectedValidator, newBalance);
 
-            // Actualisation de la liste des validateurs
-            updateValidatorTable();
-
+            // Rafraîchir la liste
+            updateValidatorList();
             showInfoMessage("Validateur modifié avec succès !");
         } catch (NumberFormatException e) {
             showErrorMessage("Le solde doit être un nombre valide !");
@@ -77,113 +196,7 @@ public class AdminDashboardController {
         }
     }
 
-
-    private Admin admin;
-    private UserDAO userDAO;
-    private ObservableList<Validator> validatorList;
-
-    public AdminDashboardController() {
-        userDAO = new UserDAO();
-    }
-
-    public void setAdmin(Admin admin) {
-        this.admin = admin;
-    }
-    private List<String> getValidatorsFromDatabase() {
-        // Exemple de récupération depuis la base de données
-        // Vous devrez adapter cette méthode pour correspondre à votre modèle de données
-        List<String> validators = new ArrayList<>();
-        // Ajoutez votre logique pour récupérer les validateurs ici
-        // Par exemple : `validators.add(validator.getUsername());`
-        return validators;
-    }
     @FXML
-    public void initialize() {
-        // Configuration de l'affichage du nom de l'administrateur
-        if (admin != null) {
-            adminNameLabel.setText(admin.getUsername());
-        }
-
-        // Initialisation de la liste des validateurs
-        validatorList = FXCollections.observableArrayList();
-        updateValidatorTable();
-
-        // Récupérer la liste des validateurs depuis la base de données
-        List<Validator> validatorsFromDB = userDAO.getValidators();
-
-        // Ajouter les validateurs dans la ComboBox
-        validatorList.addAll(validatorsFromDB);
-        validatorSelectComboBox.setItems(validatorList);
-        validatorDeleteComboBox.setItems(validatorList);
-
-        // Définir le rendu des validateurs dans les ComboBox
-        setUpValidatorComboBox();
-    }
-
-    // Définir le rendu des validateurs dans les ComboBox
-    private void setUpValidatorComboBox() {
-        // Configuration du cellFactory pour validatorSelectComboBox
-        validatorSelectComboBox.setCellFactory(param -> new ListCell<Validator>() {
-            @Override
-            protected void updateItem(Validator item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(item.getUsername() + " - " + item.getBalance());
-                }
-            }
-        });
-
-        // Configuration du buttonCell pour validatorSelectComboBox
-        validatorSelectComboBox.setButtonCell(new ListCell<Validator>() {
-            @Override
-            protected void updateItem(Validator item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(item.getUsername() + " - " + item.getBalance());
-                }
-            }
-        });
-
-        // Configuration du cellFactory pour validatorDeleteComboBox
-        validatorDeleteComboBox.setCellFactory(param -> new ListCell<Validator>() {
-            @Override
-            protected void updateItem(Validator item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(item.getUsername() + " - " + item.getBalance());
-                }
-            }
-        });
-
-        // Configuration du buttonCell pour validatorDeleteComboBox
-        validatorDeleteComboBox.setButtonCell(new ListCell<Validator>() {
-            @Override
-            protected void updateItem(Validator item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(item.getUsername() + " - " + item.getBalance());
-                }
-            }
-        });
-    }
-
-
-    // Actualisation de la table des validateurs
-    private void updateValidatorTable() {
-        validatorList.clear();
-        List<Validator> validators = userDAO.getValidators();
-        if (validators != null) {
-            validatorList.addAll(validators);
-        }
-    }
 
     // Réinitialiser l'affichage des formulaires dynamiques
     private void resetDynamicForms() {
@@ -202,44 +215,6 @@ public class AdminDashboardController {
     }
 
 
-
-    // Gestion de l'ajout d'un validateur
-    @FXML
-    public void handleAddValidator(ActionEvent actionEvent) {
-        String username = usernameField.getText();
-        String password = passwordField.getText();
-        String balanceInput = balanceField.getText();
-        String ipAddress = ipField.getText();
-        String portInput = portField.getText();
-
-        if (username.isEmpty() || password.isEmpty() || balanceInput.isEmpty() || ipAddress.isEmpty() || portInput.isEmpty()) {
-            showErrorMessage("Tous les champs sont obligatoires !");
-            return;
-        }
-
-        try {
-            double balance = Double.parseDouble(balanceInput);
-            int port = Integer.parseInt(portInput);
-
-            // Création de l'utilisateur et du validateur
-            User newUser = new User(username, password, UserRole.VALIDATOR);
-            Validator validator = new Validator(username, newUser.getPublicKey(), ipAddress, port);
-
-            // Enregistrement dans la base de données
-            userDAO.saveUser(newUser, balance);
-            userDAO.saveValidator(validator, ipAddress, port);
-
-            // Actualisation de la table
-            updateValidatorTable();
-            showInfoMessage("Validateur ajouté avec succès !");
-        } catch (NumberFormatException e) {
-            showErrorMessage("Le solde et le port doivent être des nombres valides !");
-        } catch (Exception e) {
-            showErrorMessage("Une erreur est survenue lors de l'ajout du validateur.");
-            e.printStackTrace();
-        }
-    }
-
     // Gestion des erreurs
     private void showErrorMessage(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -257,6 +232,7 @@ public class AdminDashboardController {
         alert.setContentText(message);
         alert.showAndWait();
     }
+
     @FXML
     private void handleManageValidators() {
         // Cacher le bouton "Gérer Validators"
@@ -277,12 +253,14 @@ public class AdminDashboardController {
         validatorActionsPane.setVisible(false);
         validatorActionsPane.setManaged(false);
     }
+
     @FXML
     public void showAddValidatorForm() {
         resetDynamicForms();
         addValidatorForm.setVisible(true);
         System.out.println("addValidatorForm is visible: " + addValidatorForm.isVisible());
     }
+
     @FXML
     public void showDeleteValidatorForm() {
         resetDynamicForms();
@@ -300,17 +278,17 @@ public class AdminDashboardController {
         }
 
         try {
-            // Supprimer le validateur de la base de données
+            // Supprimer le validateur
             userDAO.deleteValidator(selectedValidator);
 
-            // Actualisation de la liste des validateurs
-            updateValidatorTable();
-
+            // Rafraîchir la liste
+            updateValidatorList();
             showInfoMessage("Validateur supprimé avec succès !");
         } catch (Exception e) {
             showErrorMessage("Une erreur est survenue lors de la suppression du validateur.");
             e.printStackTrace();
         }
     }
+
 
 }

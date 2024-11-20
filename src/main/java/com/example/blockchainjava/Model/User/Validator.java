@@ -27,10 +27,24 @@ public class Validator extends User {
         generateKeyPair();
         this.validatorAddress = HashUtil.generateAddress(publicKey);
     }
+    public Validator(String username, String password , double balance) throws NoSuchAlgorithmException {
+        super(username, password, UserRole.VALIDATOR);
+        this.balance = balance; // Default balance is 0
+        this.isActive = true; // Validators are active by default
+        generateKeyPair();
+        this.validatorAddress = HashUtil.generateAddress(publicKey);
+    }
     public Validator(String username, String password, String ipAddress, int port) throws NoSuchAlgorithmException {
         this(username, password); // Appel au constructeur principal
         this.ipAddress = ipAddress;
         this.port = port;
+    }
+
+    public Validator(String username, String password, String ipAddress, int port , double balance) throws NoSuchAlgorithmException {
+        this(username, password); // Appel au constructeur principal
+        this.ipAddress = ipAddress;
+        this.port = port;
+        this.balance=balance;
     }
 
     // Generate RSA Key Pair

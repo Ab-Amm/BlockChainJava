@@ -51,7 +51,7 @@
                 <Tab text="Supprimer Validator">
                     <VBox spacing="15" style="-fx-padding: 20;">
                         <Label text="Supprimer un Validator" style="-fx-font-size: 18;"/>
-                        <ComboBox fx:id="validatorDeleteComboBox" style="-fx-font-size: 24;" />
+                        <ComboBox fx:id="validatorDeleteComboBox" style="-fx-font-size: 14;" />
                         <Button text="Supprimer" onAction="#handleDeleteValidator"
                                 style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-font-size: 16;"/>
                     </VBox>

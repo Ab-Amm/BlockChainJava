@@ -191,7 +191,8 @@ public class UserDAO {
                 // Create a Validator object from the database result
                 Validator validator = new Validator(
                         rs.getString("username"),
-                        rs.getString("password")
+                        rs.getString("password"),
+                        rs.getDouble("balance")
                 );
                 // Set other properties if needed
                 validator.setPublicKey(rs.getString("public_key"));
@@ -238,17 +239,18 @@ public class UserDAO {
 
 
     public void deleteValidator(Validator validator) {
-        String deleteValidatorSQL = "DELETE FROM validators WHERE id = (SELECT id FROM users WHERE username = ?)";
+        String deleteUserSQL = "DELETE FROM users WHERE username = ?";
 
-        try (PreparedStatement stmt = connection.prepareStatement(deleteValidatorSQL)) {
-            stmt.setString(1, validator.getUsername());
+        try (PreparedStatement stmtUser = connection.prepareStatement(deleteUserSQL)) {
+            stmtUser.setString(1, validator.getUsername());
+            int rowsDeletedUser = stmtUser.executeUpdate();
 
-            int rowsDeleted = stmt.executeUpdate();
-            if (rowsDeleted > 0) {
-                System.out.println("Validator " + validator.getUsername() + " deleted successfully.");
+            if (rowsDeletedUser > 0) {
+                System.out.println("Validator " + validator.getUsername() + " and related data deleted successfully.");
             } else {
                 System.out.println("Validator " + validator.getUsername() + " not found for deletion.");
             }
+
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete validator: " + validator.getUsername(), e);
         }
