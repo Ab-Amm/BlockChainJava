@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
-<?import com.example.blockchainjava.Controller.*?>
+<?import javafx.scene.text.Font?>
 
+<?import javafx.collections.FXCollections?>
+<?import java.lang.String?>
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.Controller.AdminDashboardController">
 
     <top>
@@ -12,70 +13,54 @@
             <Label text="Admin Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="adminNameLabel" style="-fx-text-fill: white;"/>
-            <!--<Button text="Logout" onAction="#handleLogout"/>-->
         </HBox>
     </top>
 
-    <!--<center>
+    <center>
         <TabPane>
             <Tab text="Validators Management" closable="false">
-                <VBox spacing="10" padding="10">
-                    <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Button text="Add New Validator" onAction="#showAddValidatorDialog"
-                                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
-                    </HBox>
+                <VBox spacing="10" style="-fx-background-color: #2196F3; -fx-padding: 10;">
+                    <!-- Add Validator Form -->
+                    <VBox spacing="10" style="-fx-background-color: #2196F3; -fx-padding: 10;">
+                        <Label text="Username:"/>
+                        <TextField fx:id="usernameField"/>
 
-                    <TableView fx:id="validatorTable" VBox.vgrow="ALWAYS">
+                        <Label text="Role:"/>
+                        <ComboBox fx:id="roleComboBox">
+                            <items>
+                                <FXCollections fx:factory="observableArrayList">
+                                    <String fx:value="VALIDATOR"/>
+                                </FXCollections>
+                            </items>
+                        </ComboBox>
+
+                        <Label text="Password:"/>
+                        <PasswordField fx:id="passwordField"/>
+
+                        <Label text="Balance:"/>
+                        <TextField fx:id="balanceField"/>
+
+                        <Label text="IP Address:"/>
+                        <TextField fx:id="ipField"/>
+
+                        <Label text="Port:"/>
+                        <TextField fx:id="portField"/>
+
+                        <Button text="Add New Validator" onAction="#handleAddValidator"
+                                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+                    </VBox>
+
+                    <!-- Validator Table -->
+                    <!--<TableView fx:id="validatorTable" style="-fx-background-color: #ffffff;">
                         <columns>
-                            <TableColumn fx:id="validatorIdColumn" text="Validator ID"/>
-                            <TableColumn fx:id="usernameColumn" text="Username"/>
-                            <TableColumn fx:id="addressColumn" text="Address"/>
-                            <TableColumn fx:id="statusColumn" text="Status"/>
-                            <TableColumn fx:id="lastActiveColumn" text="Last Active"/>
+                            <TableColumn text="Username" fx:id="usernameColumn" />
+                            <TableColumn text="Public Key" fx:id="publicKeyColumn" />
+                            <TableColumn text="Active" fx:id="activeColumn" />
                         </columns>
-                    </TableView>
-
-                    <HBox spacing="10">
-                        <Button text="Activate Selected" onAction="#activateValidator"
-                                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
-                        <Button text="Deactivate Selected" onAction="#deactivateValidator"
-                                style="-fx-background-color: #f44336; -fx-text-fill: white;"/>
-                    </HBox>
+                    </TableView>-->
                 </VBox>
             </Tab>
-
-            <Tab text="System Statistics" closable="false">
-                <GridPane hgap="10" vgap="10" padding="10">
-                    <columnConstraints>
-                        <ColumnConstraints hgrow="SOMETIMES" minWidth="200"/>
-                        <ColumnConstraints hgrow="SOMETIMES" minWidth="200"/>
-                    </columnConstraints>
-
-                    <VBox spacing="10" GridPane.columnIndex="0" GridPane.rowIndex="0"
-                          style="-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 5;">
-                        <Label text="Blockchain Statistics" style="-fx-font-weight: bold"/>
-                        <Label fx:id="totalBlocksLabel" text="Total Blocks: "/>
-                        <Label fx:id="totalTransactionsLabel" text="Total Transactions: "/>
-                        <Label fx:id="averageBlockTimeLabel" text="Average Block Time: "/>
-                    </VBox>
-
-                    <VBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="0"
-                          style="-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 5;">
-                        <Label text="Network Statistics" style="-fx-font-weight: bold"/>
-                        <Label fx:id="activeValidatorsLabel" text="Active Validators: "/>
-                        <Label fx:id="activeClientsLabel" text="Active Clients: "/>
-                        <Label fx:id="networkStatusLabel" text="Network Status: "/>
-                    </VBox>
-
-                    <VBox spacing="10" GridPane.columnSpan="2" GridPane.rowIndex="1"
-                          style="-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 5;">
-                        <Label text="System Logs" style="-fx-font-weight: bold"/>
-                        <TextArea fx:id="systemLogsArea" editable="false" wrapText="true"
-                                  VBox.vgrow="ALWAYS"/>
-                        <Button text="Clear Logs" onAction="#clearSystemLogs"/>
-                    </VBox>
-                </GridPane>
-            </Tab>
         </TabPane>
-    </center>-->
+    </center>
+
 </BorderPane>
