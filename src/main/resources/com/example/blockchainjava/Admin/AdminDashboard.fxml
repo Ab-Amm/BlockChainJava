@@ -9,58 +9,57 @@
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.Controller.AdminDashboardController">
 
     <top>
-        <HBox spacing="10" style="-fx-background-color: #FF5722; -fx-padding: 10;">
-            <Label text="Admin Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
+        <HBox spacing="15" style="-fx-background-color: #FF5722; -fx-padding: 15;">
+            <Label text="Admin Dashboard" style="-fx-text-fill: white; -fx-font-size: 24;"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Label fx:id="adminNameLabel" style="-fx-text-fill: white;"/>
+            <Label fx:id="adminNameLabel" style="-fx-text-fill: white; -fx-font-size: 16;"/>
         </HBox>
     </top>
 
     <center>
-        <TabPane>
-            <Tab text="Validators Management" closable="false">
-                <VBox spacing="10" style="-fx-background-color: #2196F3; -fx-padding: 10;">
-                    <!-- Add Validator Form -->
-                    <VBox spacing="10" style="-fx-background-color: #2196F3; -fx-padding: 10;">
-                        <Label text="Username:"/>
-                        <TextField fx:id="usernameField"/>
+        <VBox spacing="30" style="-fx-padding: 30;">
+            <Button fx:id="manageValidatorsButton" text="Gérer Validators" onAction="#handleManageValidators"
+                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 18;"/>
 
-                        <Label text="Role:"/>
-                        <ComboBox fx:id="roleComboBox">
-                            <items>
-                                <FXCollections fx:factory="observableArrayList">
-                                    <String fx:value="VALIDATOR"/>
-                                </FXCollections>
-                            </items>
-                        </ComboBox>
-
-                        <Label text="Password:"/>
-                        <PasswordField fx:id="passwordField"/>
-
-                        <Label text="Balance:"/>
-                        <TextField fx:id="balanceField"/>
-
-                        <Label text="IP Address:"/>
-                        <TextField fx:id="ipField"/>
-
-                        <Label text="Port:"/>
-                        <TextField fx:id="portField"/>
-
-                        <Button text="Add New Validator" onAction="#handleAddValidator"
-                                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+            <!-- TabPane pour gérer les actions sur les validators -->
+            <TabPane>
+                <!-- Onglet pour ajouter un validator -->
+                <Tab text="Ajouter Validator">
+                    <VBox spacing="15" style="-fx-padding: 20;">
+                        <Label text="Ajouter un Validator" style="-fx-font-size: 18;"/>
+                        <TextField fx:id="usernameField" promptText="Username" style="-fx-font-size: 14;"/>
+                        <PasswordField fx:id="passwordField" promptText="Password" style="-fx-font-size: 14;"/>
+                        <TextField fx:id="balanceField" promptText="Balance" style="-fx-font-size: 14;"/>
+                        <TextField fx:id="ipField" promptText="IP Address" style="-fx-font-size: 14;"/>
+                        <TextField fx:id="portField" promptText="Port" style="-fx-font-size: 14;"/>
+                        <Button text="Ajouter" onAction="#handleAddValidator"
+                                style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 16;"/>
                     </VBox>
+                </Tab>
 
-                    <!-- Validator Table -->
-                    <!--<TableView fx:id="validatorTable" style="-fx-background-color: #ffffff;">
-                        <columns>
-                            <TableColumn text="Username" fx:id="usernameColumn" />
-                            <TableColumn text="Public Key" fx:id="publicKeyColumn" />
-                            <TableColumn text="Active" fx:id="activeColumn" />
-                        </columns>
-                    </TableView>-->
-                </VBox>
-            </Tab>
-        </TabPane>
+                <!-- Onglet pour modifier un validator -->
+                <Tab text="Modifier Validator">
+                    <VBox spacing="15" style="-fx-padding: 20;">
+                        <Label text="Modifier un Validator" style="-fx-font-size: 18;"/>
+                        <ComboBox fx:id="validatorSelectComboBox" style="-fx-font-size: 14;" />
+                        <TextField fx:id="newBalanceField" promptText="New Balance" style="-fx-font-size: 14;"/>
+                        <Button text="Modifier" onAction="#handleEditValidator"
+                                style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 16;"/>
+                    </VBox>
+                </Tab>
+
+                <Tab text="Supprimer Validator">
+                    <VBox spacing="15" style="-fx-padding: 20;">
+                        <Label text="Supprimer un Validator" style="-fx-font-size: 18;"/>
+                        <ComboBox fx:id="validatorDeleteComboBox" style="-fx-font-size: 24;" />
+                        <Button text="Supprimer" onAction="#handleDeleteValidator"
+                                style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-font-size: 16;"/>
+                    </VBox>
+                </Tab>
+
+            </TabPane>
+
+        </VBox>
     </center>
 
 </BorderPane>

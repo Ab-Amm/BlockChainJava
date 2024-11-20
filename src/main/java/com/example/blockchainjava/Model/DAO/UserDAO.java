@@ -218,5 +218,41 @@ public class UserDAO {
             // Gérer l'exception selon les besoins
         }
     }
+    public void updateValidatorBalance(Validator validator, double newBalance) {
+        String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'VALIDATOR'";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setDouble(1, newBalance);  // Définir le nouveau solde
+            stmt.setString(2, validator.getUsername());  // Utiliser le nom d'utilisateur du validateur
+
+            int rowsUpdated = stmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("Le solde du validateur " + validator.getUsername() + " a été mis à jour.");
+            } else {
+                System.out.println("Aucun validateur trouvé avec le nom d'utilisateur : " + validator.getUsername());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Échec de la mise à jour du solde pour le validateur : " + validator.getUsername(), e);
+        }
+    }
+
+
+    public void deleteValidator(Validator validator) {
+        String deleteValidatorSQL = "DELETE FROM validators WHERE id = (SELECT id FROM users WHERE username = ?)";
+
+        try (PreparedStatement stmt = connection.prepareStatement(deleteValidatorSQL)) {
+            stmt.setString(1, validator.getUsername());
+
+            int rowsDeleted = stmt.executeUpdate();
+            if (rowsDeleted > 0) {
+                System.out.println("Validator " + validator.getUsername() + " deleted successfully.");
+            } else {
+                System.out.println("Validator " + validator.getUsername() + " not found for deletion.");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete validator: " + validator.getUsername(), e);
+        }
+    }
+
 
 }
