@@ -151,7 +151,7 @@ public class UserDAO {
         // Set public and private keys
         user.setPublicKey(rs.getString("public_key"));
         user.setPrivateKey(rs.getString("private_key"));
-
+        user.setBalance(rs.getDouble("balance"));
         return user;
     }
     public void updateUser(User user) {
@@ -208,6 +208,49 @@ public class UserDAO {
 
         return validatorList;
     }
+    public List<Client> getAllClients() {
+        List<Client> clientList = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role = 'CLIENT'";  // Assurez-vous que la table 'users' existe
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();  // Exécuter la requête et obtenir le ResultSet
+
+            while (rs.next()) {
+                // Créer un objet Client à partir des données du ResultSet
+                int userId = rs.getInt("id");
+                String username = rs.getString("username");
+                String role = rs.getString("role");
+                double balance = rs.getDouble("balance");
+
+                // Affichage des résultats extraits de la base de données
+                System.out.println("Fetched client data - User ID: " + userId + ", Username: " + username + ", Role: " + role + ", Balance: " + balance);
+
+                // Créer l'objet Client et définir ses propriétés
+                UserRole userRole = UserRole.valueOf(role);
+                Client client = new Client(username, rs.getString("password"));  // Ajoutez un mot de passe si nécessaire
+                client.setBalance(balance);
+
+                // Ajouter l'objet Client à la liste
+                clientList.add(client);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("SQLException: " + e.getMessage());
+            throw new RuntimeException("Failed to load all clients", e);
+        }
+
+        // Affichage pour vérifier le contenu de la liste clientList
+        System.out.println("Total number of clients fetched: " + clientList.size());
+        for (Client client : clientList) {
+            System.out.println("Client: " + client.getUsername() + ", Balance: " + client.getBalance());
+        }
+
+        // Retourner la liste des clients
+        return clientList;
+    }
+
+
+
     public void registerValidator(Validator validator) {
         // Code pour enregistrer le validateur dans la base de données.
         // Cela pourrait inclure l'ajout de l'utilisateur en tant que validateur, par exemple.
@@ -236,6 +279,25 @@ public class UserDAO {
             throw new RuntimeException("Échec de la mise à jour du solde pour le validateur : " + validator.getUsername(), e);
         }
     }
+    public boolean updateUserBalance(User user, double newBalance) {
+        String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'CLIENT'";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setDouble(1, newBalance);  // Définir le nouveau solde
+            stmt.setString(2, user.getUsername());  // Utiliser le nom d'utilisateur du validateur
+
+            int rowsUpdated = stmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("Le solde du validateur " + user.getUsername() + " a été mis à jour.");
+                return true;
+            } else {
+                System.out.println("Aucun validateur trouvé avec le nom d'utilisateur : " + user.getUsername());
+                return false;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Échec de la mise à jour du solde pour le validateur : " + user.getUsername(), e);
+        }
+    }
 
 
     public void deleteValidator(Validator validator) {
@@ -255,6 +317,41 @@ public class UserDAO {
             throw new RuntimeException("Failed to delete validator: " + validator.getUsername(), e);
         }
     }
+    public User findUserById(int clientId) {
+        String sql = "SELECT * FROM users WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, clientId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                // Obtient le rôle de l'utilisateur depuis la base de données
+                UserRole role = UserRole.valueOf(rs.getString("role"));
+                // Crée un objet utilisateur à partir des résultats
+                User user = createUserFromResultSet(rs, role);
+                // Définit la clé publique et la clé privée
+                user.setPublicKey(rs.getString("public_key"));
+                user.setPrivateKey(rs.getString("private_key"));
+                return user;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load user with ID: " + clientId, e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error processing algorithm", e);
+        }
+        return null; // Retourne null si aucun utilisateur n'est trouvé
+    }
+
+
+
+    // Méthode utilitaire pour obtenir le nombre de lignes dans le ResultSet
+    private int getRowCount(ResultSet rs) throws SQLException {
+        rs.last(); // Aller à la dernière ligne
+        int rowCount = rs.getRow(); // Obtenir le numéro de ligne
+        rs.beforeFirst(); // Revenir au début du ResultSet
+        return rowCount;
+    }
+
 
 
 }

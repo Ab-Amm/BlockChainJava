@@ -20,6 +20,14 @@ public class Validator extends User {
     private double balance;   // Validator's balance in the system
 
     // Constructor with IP Address and Port
+    public Validator() throws NoSuchAlgorithmException {
+        super("default_username", "default_password", UserRole.VALIDATOR);  // Appel au constructeur de la classe parente User
+        this.balance = 0.0; // Solde initial à 0
+        this.isActive = true; // Le validateur est actif par défaut
+        generateKeyPair(); // Générer une paire de clés pour le validateur
+        this.validatorAddress = HashUtil.generateAddress(publicKey); // Générer une adresse à partir de la clé publique
+    }
+
     public Validator(String username, String password) throws NoSuchAlgorithmException {
         super(username, password, UserRole.VALIDATOR);
         this.balance = 0.0; // Default balance is 0

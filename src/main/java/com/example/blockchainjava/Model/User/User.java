@@ -8,13 +8,13 @@ import java.util.UUID;
 
 public class User {
     private String id;
-    private String username;
+    protected String username;
     private String password; // Stored hashed
     private UserRole role;
     private LocalDateTime createdAt;
     private String privateKey;
     private String publicKey;
-
+    private double balance ;
     public User(String username, String password, UserRole role) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
@@ -25,6 +25,9 @@ public class User {
     }
 
 
+    public void setBalance(double balance) {
+        this.balance = balance;
+    }
 
     public String getId() {
         return id;

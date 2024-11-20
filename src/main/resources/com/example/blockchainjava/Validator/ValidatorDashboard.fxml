@@ -12,14 +12,13 @@
             <Label text="Validator Dashboard" style="-fx-text-fill: white; -fx-font-size: 20;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="validatorAddressLabel" style="-fx-text-fill: white;"/>
-            <!-- Bouton Logout (activer si besoin) -->
-            <!-- <Button text="Logout" onAction="#handleLogout"/> -->
         </HBox>
     </top>
 
     <center>
-        <SplitPane dividerPositions="0.6" VBox.vgrow="ALWAYS">
-            <items>
+        <TabPane VBox.vgrow="ALWAYS">
+            <!-- Onglet Blockchain Blocks -->
+            <Tab text="Blockchain Blocks">
                 <VBox spacing="10">
                     <Label text="Blockchain Blocks" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
                     <TableView fx:id="blockTable" VBox.vgrow="ALWAYS">
@@ -32,7 +31,10 @@
                         </columns>
                     </TableView>
                 </VBox>
+            </Tab>
 
+            <!-- Onglet Pending Transactions -->
+            <Tab text="Pending Transactions">
                 <VBox spacing="10">
                     <Label text="Pending Transactions" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
                     <TableView fx:id="pendingTransactionsTable" VBox.vgrow="ALWAYS">
@@ -47,13 +49,33 @@
                     <HBox spacing="10" style="-fx-padding: 10;">
                         <Button text="Validate Selected" onAction="#validateTransaction"
                                 style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
-                        <!-- Bouton Rejection (activer si besoin) -->
-                        <!-- <Button text="Reject Selected" onAction="#rejectTransaction"
-                                style="-fx-background-color: #f44336; -fx-text-fill: white;"/> -->
                     </HBox>
                 </VBox>
-            </items>
-        </SplitPane>
+            </Tab>
+
+            <!-- Onglet Gérer Clients -->
+            <Tab text="Gérer Clients">
+                <VBox spacing="10">
+                    <Label text="Gérer Clients" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
+                    <TableView fx:id="userTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="id" text="Client ID"/>
+                            <TableColumn fx:id="clientNameColumn" text="Name" />
+                            <TableColumn fx:id="clientBalanceColumn" text="Balance" />
+                        </columns>
+                    </TableView>
+                    <HBox spacing="10" style="-fx-padding: 10;">
+                        <Label text="Client ID:"/>
+                        <TextField fx:id="clientIdField" promptText="Enter Client ID"/>
+                        <Label text="New Balance:"/>
+                        <TextField fx:id="clientBalanceField" promptText="Enter New Balance"/>
+                        <Button text="Update Balance" onAction="#updateClientBalance"
+                                style="-fx-background-color: #2196F3; -fx-text-fill: white;"/>
+                    </HBox>
+                </VBox>
+            </Tab>
+
+        </TabPane>
     </center>
 
     <bottom>
