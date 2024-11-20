@@ -4,9 +4,8 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 
-<VBox xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.example.blockchainjava.Controller.TransactionFormController"
-      spacing="15" alignment="CENTER">
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.blockchainjava.Controller.TransactionFormController">
 
     <padding>
         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -21,10 +20,11 @@
         <TextArea fx:id="noteField" promptText="Transaction Note (Optional)"
                   prefRowCount="3"/>
 
-        <Button text="Send Transaction" onAction="#handleSubmitTransaction"
-                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"
-                maxWidth="Infinity"/>
+<!--        <Button text="Send Transaction" onAction="#handleSubmitTransaction"-->
+<!--                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"-->
+<!--                maxWidth="Infinity"/>-->
 
         <Label fx:id="statusLabel" wrapText="true"/>
     </VBox>
-</VBox>
+
+</BorderPane>

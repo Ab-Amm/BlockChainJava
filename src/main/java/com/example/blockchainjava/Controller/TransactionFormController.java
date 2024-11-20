@@ -15,6 +15,10 @@ public class TransactionFormController {
 
     private final SocketClient socketClient;
     private final User currentUser;
+    public TransactionFormController() {
+        this.socketClient = null; // Default to null; will be set later
+        this.currentUser = null;
+    }
 
     public TransactionFormController(SocketClient socketClient, User currentUser) {
         this.socketClient = socketClient;

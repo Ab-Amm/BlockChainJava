@@ -18,13 +18,16 @@
         </HBox>
     </top>
 
-    <!-- <center>
+    <center>
         <TabPane>
             <Tab text="Send Transaction" closable="false">
                 <fx:include source="TransactionForm.fxml"/>
             </Tab>
             <Tab text="Transaction History" closable="false">
-                <VBox spacing="10" padding="10">
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
                     <TableView fx:id="transactionTable" VBox.vgrow="ALWAYS">
                         <columns>
                             <TableColumn fx:id="transactionIdColumn" text="Transaction ID"/>
@@ -35,11 +38,9 @@
                             <TableColumn fx:id="blockIdColumn" text="Block ID"/>
                         </columns>
                     </TableView>
-                    <HBox spacing="10">
-                         <Button text="Refresh" onAction="#refreshTransactions"/>
-                    </HBox>
                 </VBox>
+
             </Tab>
         </TabPane>
-    </center> -->
+    </center>
 </BorderPane>
