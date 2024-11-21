@@ -227,8 +227,7 @@ public class UserDAO {
 
                 // Créer l'objet Client et définir ses propriétés
                 UserRole userRole = UserRole.valueOf(role);
-                Client client = new Client(username, rs.getString("password"));  // Ajoutez un mot de passe si nécessaire
-                client.setBalance(balance);
+                Client client = new Client(userId ,username, rs.getString("password") , balance);
 
                 // Ajouter l'objet Client à la liste
                 clientList.add(client);

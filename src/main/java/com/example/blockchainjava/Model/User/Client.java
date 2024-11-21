@@ -16,6 +16,12 @@ public class Client extends User {
         this.balance = 0.0;
         this.transactions = new ArrayList<>();
     }
+    public Client(int id ,String username, String password , Double balance) {
+        super(username, password, UserRole.CLIENT);
+        this.id=id;
+        this.balance = balance;
+        this.transactions = new ArrayList<>();
+    }
     public IntegerProperty getIdProperty() {
         return new SimpleIntegerProperty(id);  // Retourne une IntegerProperty
     }
