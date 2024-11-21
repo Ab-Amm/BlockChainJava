@@ -7,9 +7,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DatabaseConnection {
-    private static final String URL = "jdbc:mysql://localhost:3306/blockchain";
+    private static final String URL = "jdbc:mysql://25.51.250.189:3306/blockchain";
     private static final String USER = "root";
-    private static final String PASSWORD = "";
+    private static final String PASSWORD = "2004";
 
     private static Connection connection;
 

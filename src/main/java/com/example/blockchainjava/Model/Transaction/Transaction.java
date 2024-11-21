@@ -39,6 +39,14 @@ public class Transaction {
         this.amount = amount;
         this.status = status;
     }
+    public Transaction(int id ,int senderId, String receiverKey, Double amount, TransactionStatus status , String signature) {
+        this.id=id;
+        this.senderId = senderId;
+        this.receiverKey = receiverKey;
+        this.amount = amount;
+        this.status = status;
+        this.signature=signature;
+    }
 
     // Getters et setters
     public int getId() {

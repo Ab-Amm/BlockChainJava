@@ -1,6 +1,7 @@
 package com.example.blockchainjava.Util.Network;
 
 import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -25,10 +26,19 @@ public class SocketClient {
         input = new ObjectInputStream(socket.getInputStream());
     }
 
-    public void sendTransaction(Transaction transaction) throws IOException {
-        output.writeObject(transaction);
-        output.flush();
+    public void sendTransaction(Transaction transaction) {
+        try {
+            // Convert transaction object to JSON
+            String transactionJson = new ObjectMapper().writeValueAsString(transaction);
+
+            // Send the JSON over the socket
+            output.writeUTF(transactionJson); // Utilisez 'output' au lieu de 'outputStream'
+            output.flush();
+        } catch (Exception e) {
+            System.out.println("Error sending transaction: " + e.getMessage());
+        }
     }
+
 
     public String receiveResponse() throws IOException, ClassNotFoundException {
         return (String) input.readObject();

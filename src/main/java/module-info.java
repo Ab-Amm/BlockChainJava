@@ -12,10 +12,11 @@ module com.example.blockchainjava {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
-    requires java.sql;
     requires jbcrypt;
     requires annotations;
     requires mysql.connector.java;
+    requires com.fasterxml.jackson.databind;
+    requires java.sql;
 
     exports com.example.blockchainjava;
     opens com.example.blockchainjava to javafx.fxml;

@@ -110,4 +110,30 @@ public class TransactionDAO {
         }
         return transactions;
     }
+    public Transaction getLatestTransaction(int senderId, String receiverPublicKey, double amount, TransactionStatus status) {
+        try {
+            String sql = "SELECT * FROM transactions WHERE sender_id = ? AND receiver_key = ? AND amount = ? AND status = ? ORDER BY id DESC LIMIT 1";
+            PreparedStatement stmt = connection.prepareStatement(sql);
+            stmt.setInt(1, senderId);
+            stmt.setString(2, receiverPublicKey);
+            stmt.setDouble(3, amount);
+            stmt.setString(4, status.toString());
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return new Transaction(
+                        rs.getInt("id"),
+                        rs.getInt("sender_id"),
+                        rs.getString("receiver_key"),
+                        rs.getDouble("amount"),
+                        TransactionStatus.valueOf(rs.getString("status")),
+                        rs.getString("signature")
+                );
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
 }

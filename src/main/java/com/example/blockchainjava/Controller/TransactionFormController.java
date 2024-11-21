@@ -1,6 +1,7 @@
 package com.example.blockchainjava.Controller;
 
 import com.example.blockchainjava.Model.DAO.TransactionDAO;
+import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Util.Network.SocketClient;
@@ -11,11 +12,14 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextField;
 import com.example.blockchainjava.Util.Security.SecurityUtils;
+import com.example.blockchainjava.Model.DAO.UserDAO;
 
 import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TransactionFormController {
     @FXML
@@ -23,15 +27,15 @@ public class TransactionFormController {
     @FXML
     private TextField amountField;
     private TransactionDAO transactionDAO;
-
     private final Connection connection;
 
     // Default constructor for FXML
     public TransactionFormController() {
         // Initialize the database connection
         this.connection = DatabaseConnection.getConnection();
-        transactionDAO=new TransactionDAO();
+        transactionDAO = new TransactionDAO();
     }
+
     // Méthode pour générer la signature avec la clé privée décodée
     public String generateSignature(Transaction transaction, PrivateKey privateKey) {
         try {
@@ -46,8 +50,11 @@ public class TransactionFormController {
     }
 
     // Method to handle form submission
+    // Method to handle form submission
     public void submitTransaction() {
         try {
+            System.out.println("=== Start of submitTransaction ===");
+
             // Retrieve the current user from the session
             User currentUser = Session.getCurrentUser();
 
@@ -55,51 +62,96 @@ public class TransactionFormController {
             if (currentUser == null) {
                 throw new IllegalStateException("No user is currently logged in. Cannot submit transaction.");
             }
+            System.out.println("Current user: " + currentUser.getUsername() + ", Balance: " + currentUser.getBalance());
 
             String receiverPublicKey = receiverField.getText();
             double amount = Double.parseDouble(amountField.getText());
 
-            // Debugging: Print input values
-            System.out.println("Receiver Public Key: " + receiverPublicKey);
-            System.out.println("Amount: " + amount);
+            System.out.println("Receiver public key: " + receiverPublicKey + ", Amount: " + amount);
 
-            // Step 1: Validate receiver public key
+            // Validate receiver public key
             if (!isValidReceiverPublicKey(receiverPublicKey)) {
-                // Debugging: Public key validation failed
-                System.out.println("Invalid receiver public key.");
                 throw new IllegalArgumentException("The receiver's public key is invalid.");
             }
+
+            // Check if user has sufficient balance
             if (amount > currentUser.getBalance()) {
-                System.out.println("Insufficient funds.");
                 throw new IllegalArgumentException("You do not have enough balance to complete this transaction.");
             }
 
-
-            // Step 2: Create transaction
+            // Create the transaction
             Transaction transaction = new Transaction(
                     currentUser.getId(),
                     receiverPublicKey,
                     amount,
                     TransactionStatus.PENDING
             );
+
+            System.out.println("Transaction created: " + transaction);
+
+            // Decode the user's private key and sign the transaction
             PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
+            System.out.println("Private key decoded successfully.");
 
-            // Créer la signature avec la clé privée décodée
             String signature = generateSignature(transaction, privateKey);
-
-            // Assigner la signature à la transaction
             transaction.setSignature(signature);
 
-            // Debugging: Print transaction details
-            System.out.println("Transaction created: " + transaction);
-            transactionDAO.saveTransaction(transaction);
+            System.out.println("Transaction signed: " + transaction);
 
-            // Clear form
+            // Save the transaction in the database with status PENDING
+            transactionDAO.saveTransaction(transaction);
+            System.out.println("Transaction saved in database.");
+
+            // Retrieve the latest transaction from the database to ensure consistency
+            Transaction savedTransaction = transactionDAO.getLatestTransaction(
+                    currentUser.getId(),
+                    receiverPublicKey,
+                    amount,
+                    TransactionStatus.PENDING
+            );
+
+            System.out.println("Retrieved transaction from database: " + savedTransaction);
+
+            if (savedTransaction != null) {
+                // Send the transaction to all validators
+                List<SocketClient> validators = getValidators();
+                System.out.println("Validators list: " + validators);
+
+                for (SocketClient validator : validators) {
+                    try {
+                        System.out.println("Connecting to validator: " + validator);
+                        // Connect to the validator
+                        validator.connect();
+
+                        System.out.println("Sending transaction to validator...");
+                        // Send the transaction
+                        validator.sendTransaction(savedTransaction);
+
+                        // Receive the response from the validator
+                        String response = validator.receiveResponse();
+                        System.out.println("Validator response: " + response);
+
+                        // Close the connection
+                        validator.close();
+                        System.out.println("Connection to validator closed.");
+                    } catch (Exception e) {
+                        // Handle errors for each validator
+                        System.out.println("Error sending transaction to validator: " + validator);
+                        e.printStackTrace(); // Log stack trace for debugging
+                    }
+                }
+            }
+
+            // Clear the form
             receiverField.clear();
             amountField.clear();
 
-            // Debugging: Transaction saved successfully
-            System.out.println("Transaction successfully submitted.");
+            // Notify user of successful submission
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Success");
+            alert.setHeaderText("Transaction Submitted");
+            alert.setContentText("Your transaction has been submitted and sent to the validators.");
+            alert.showAndWait();
         } catch (Exception e) {
             e.printStackTrace();
 
@@ -109,8 +161,35 @@ public class TransactionFormController {
             alert.setHeaderText("Transaction failed");
             alert.setContentText("Error details: " + e.getMessage());
             alert.showAndWait();
+        } finally {
+            System.out.println("=== End of submitTransaction ===");
         }
     }
+
+
+
+    // Méthode fictive pour récupérer la liste des validateurs (adresses IP et ports)
+    // Méthode pour récupérer les validateurs depuis la base de données
+    private List<SocketClient> getValidators() {
+        List<SocketClient> validators = new ArrayList<>();
+        String sql = "SELECT ip_address, port FROM validators"; // Table 'validators' avec colonnes 'ip_address' et 'port'
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                String ip = rs.getString("ip_address");
+                int port = rs.getInt("port");
+                validators.add(new SocketClient(ip, port));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error fetching validators from database: " + e.getMessage());
+        }
+
+        return validators;
+    }
+
 
     // Method to validate receiver public key in the database
     private boolean isValidReceiverPublicKey(String publicKey) {
