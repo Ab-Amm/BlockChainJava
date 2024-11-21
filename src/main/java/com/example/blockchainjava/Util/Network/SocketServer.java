@@ -12,6 +12,8 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import static java.lang.foreign.MemorySegment.NULL;
+
 public class SocketServer {
     private final BlockChain blockchain;
     private final ServerSocket serverSocket;
@@ -56,7 +58,7 @@ public class SocketServer {
 
     private boolean validateTransaction(Transaction transaction) {
         // Check if the transaction is not null and has valid fields
-        if (transaction == null || transaction.getSender() == null || transaction.getReceiver() == null) {
+        if (transaction == null || transaction.getSenderId() == null ) {
             return false;
         }
 
@@ -71,12 +73,12 @@ public class SocketServer {
         }
 
         // Verify that transaction sender has enough balance
-        if (!(blockchain.getBalance(transaction.getSender()) < transaction.getAmount())) {
+        if (!(blockchain.getBalance(transaction.getSenderId()) < transaction.getAmount())) {
             return false;
         }
 
         // Verify that transaction sender is not the same as the receiver
-        if (transaction.getSender().equals(transaction.getReceiver())) {
+        if (transaction.getSenderId().equals(transaction.getReceiverKey())) {
             return false;
         }
 

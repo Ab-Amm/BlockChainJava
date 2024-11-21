@@ -117,6 +117,8 @@ public class UserDAO {
                 UserRole role = UserRole.valueOf(rs.getString("role"));
                 User user = createUserFromResultSet(rs, role);
                 // Set public and private keys
+                user.setId(rs.getInt("id"));
+                user.setBalance(rs.getDouble("balance"));
                 user.setPublicKey(rs.getString("public_key"));
                 user.setPrivateKey(rs.getString("private_key"));
                 return user;

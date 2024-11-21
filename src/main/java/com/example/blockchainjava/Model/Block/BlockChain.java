@@ -67,19 +67,19 @@ public class BlockChain {
         observers.add(validatorDashboardController);
     }
 
-    public Boolean getBalanceBool(String sender) {
+    public Boolean getBalanceBool(Integer sender) {
         for (Block block : chain) {
-            if (block.getTransaction().getSender().equals(sender)) {
+            if (block.getTransaction().getSenderId().equals(sender)) {
                 return true;
             }
         }
         return false;
     }
-    public double getBalance(String sender) {
+    public double getBalance(Integer sender) {
         double balance = 0.0;
         for (Block block : chain) {
-            if (block.getTransaction().getSender().equals(sender)) {
-                balance += block.getTransaction().getAmount();
+            if (block.getTransaction().getSenderId().equals(sender)) {
+                balance =  balance + block.getTransaction().getAmount();
             }
         }
         return balance;

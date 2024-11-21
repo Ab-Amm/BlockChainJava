@@ -1,55 +1,64 @@
 package com.example.blockchainjava.Model.Transaction;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public class Transaction {
-    private String transactionId;
-    private String sender;
-    private String receiver;
-    private double amount;
+    private int id;
+    private int senderId;
+    private String receiverKey; // Clé publique du destinataire
+    private Double amount;
     private TransactionStatus status;
-    private Long blockId;
-    private LocalDateTime timestamp;
+    private Integer blockId; // Nullable
+    private LocalDateTime createdAt;
 
-    public Transaction(String sender, String receiver, double amount, TransactionStatus status) {
-        this.transactionId = UUID.randomUUID().toString();
-        this.sender = sender;
-        this.receiver = receiver;
+    // Constructeur
+    public Transaction(int id, int senderId, String receiverKey, Double amount, TransactionStatus status, Integer blockId, LocalDateTime createdAt) {
+        this.id = id;
+        this.senderId = senderId;
+        this.receiverKey = receiverKey;
         this.amount = amount;
         this.status = status;
-        this.timestamp = LocalDateTime.now();
+        this.blockId = blockId;
+        this.createdAt = createdAt;
+    }
+    public Transaction(int senderId, String receiverKey, Double amount, TransactionStatus status) {
+        this.senderId = senderId;
+        this.receiverKey = receiverKey;
+        this.amount = amount;
+        this.status = status;
     }
 
-    public String getTransactionId() {
-        return transactionId;
+    // Getters et setters
+    public int getId() {
+        return id;
     }
 
-    public void setTransactionId(String transactionId) {
-        this.transactionId = transactionId;
+    public void setId(int id) {
+        this.id = id;
     }
 
-    public String getSender() {
-        return sender;
+    public Integer getSenderId() {
+        return senderId;
     }
 
-    public void setSender(String sender) {
-        this.sender = sender;
+    public void setSenderId(int senderId) {
+        this.senderId = senderId;
     }
 
-    public String getReceiver() {
-        return receiver;
+    public String getReceiverKey() {
+        return receiverKey;
     }
 
-    public void setReceiver(String receiver) {
-        this.receiver = receiver;
+    public void setReceiverKey(String receiverKey) {
+        this.receiverKey = receiverKey;
     }
 
-    public double getAmount() {
+    public Double getAmount() {
         return amount;
     }
 
-    public void setAmount(double amount) {
+    public void setAmount(Double amount) {
         this.amount = amount;
     }
 
@@ -61,19 +70,32 @@ public class Transaction {
         this.status = status;
     }
 
-    public Long getBlockId() {
+    public Integer getBlockId() {
         return blockId;
     }
 
-    public void setBlockId(Long blockId) {
+    public void setBlockId(Integer blockId) {
         this.blockId = blockId;
     }
 
-    public LocalDateTime getTimestamp() {
-        return timestamp;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    @Override
+    public String toString() {
+        return "Transaction{" +
+                "id=" + id +
+                ", senderId=" + senderId +
+                ", receiverKey='" + receiverKey + '\'' +
+                ", amount=" + amount +
+                ", status=" + status +
+                ", blockId=" + blockId +
+                ", createdAt=" + createdAt +
+                '}';
     }
 }

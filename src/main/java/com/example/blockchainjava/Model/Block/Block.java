@@ -24,7 +24,7 @@ public class Block {
     private String calculateHash() {
         return HashUtil.sha256(
                 previousHash +
-                        transaction.getTransactionId() +
+                        transaction.getId() +
                         timestamp.toString() +
                         validatorSignature
         );
