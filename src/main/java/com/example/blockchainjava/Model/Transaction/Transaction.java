@@ -11,6 +11,17 @@ public class Transaction {
     private TransactionStatus status;
     private Integer blockId; // Nullable
     private LocalDateTime createdAt;
+    private String signature; // Ajoute l'attribut signature
+
+    // Autres attributs, constructeurs, getters et setters
+
+    public String getSignature() {
+        return signature;
+    }
+
+    public void setSignature(String signature) {
+        this.signature = signature;
+    }
 
     // Constructeur
     public Transaction(int id, int senderId, String receiverKey, Double amount, TransactionStatus status, Integer blockId, LocalDateTime createdAt) {

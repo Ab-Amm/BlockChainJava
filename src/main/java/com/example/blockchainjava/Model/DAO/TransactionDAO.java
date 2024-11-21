@@ -17,7 +17,7 @@ public class TransactionDAO {
 
     // Sauvegarder une transaction
     public void saveTransaction(Transaction transaction) {
-        String sql = "INSERT INTO transactions (sender_id, receiver_key, amount, status, block_id, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO transactions (sender_id, receiver_key, amount, status, block_id, created_at, signature) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, transaction.getSenderId());
@@ -25,11 +25,17 @@ public class TransactionDAO {
             stmt.setDouble(3, transaction.getAmount());
             stmt.setString(4, transaction.getStatus().toString());
             stmt.setObject(5, transaction.getBlockId() != null ? transaction.getBlockId() : null, Types.INTEGER);
+
+            // Vérifie si la date de création est null et assigne la date actuelle
             if (transaction.getCreatedAt() == null) {
                 transaction.setCreatedAt(LocalDateTime.now());
             }
+            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt())); // Conversion LocalDateTime à Timestamp
 
-            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt()));
+            // Enregistrer la signature
+            stmt.setString(7, transaction.getSignature());  // Ajouter la signature à l'insertion
+
+            // Exécution de l'insertion
             stmt.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save transaction", e);

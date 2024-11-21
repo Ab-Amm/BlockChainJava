@@ -10,7 +10,9 @@ import com.example.blockchainjava.Model.User.Session;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextField;
+import com.example.blockchainjava.Util.Security.SecurityUtils;
 
+import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,6 +31,18 @@ public class TransactionFormController {
         // Initialize the database connection
         this.connection = DatabaseConnection.getConnection();
         transactionDAO=new TransactionDAO();
+    }
+    // Méthode pour générer la signature avec la clé privée décodée
+    public String generateSignature(Transaction transaction, PrivateKey privateKey) {
+        try {
+            // Créer les données à signer (par exemple, l'ID de l'expéditeur et le montant)
+            String dataToSign = "SenderId: " + transaction.getSenderId() + ", Amount: " + transaction.getAmount();
+
+            // Signer les données avec la clé privée
+            return SecurityUtils.signData(dataToSign, privateKey); // Utiliser la méthode signData avec la clé privée décodée
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating signature", e);
+        }
     }
 
     // Method to handle form submission
@@ -68,12 +82,17 @@ public class TransactionFormController {
                     amount,
                     TransactionStatus.PENDING
             );
+            PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
+
+            // Créer la signature avec la clé privée décodée
+            String signature = generateSignature(transaction, privateKey);
+
+            // Assigner la signature à la transaction
+            transaction.setSignature(signature);
 
             // Debugging: Print transaction details
             System.out.println("Transaction created: " + transaction);
             transactionDAO.saveTransaction(transaction);
-            // TODO: Save transaction to database or send it to the blockchain network
-            // Example: SocketClient.sendTransaction(transaction);
 
             // Clear form
             receiverField.clear();
