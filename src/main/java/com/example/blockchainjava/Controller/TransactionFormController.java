@@ -56,7 +56,6 @@ public class TransactionFormController {
                 throw new IllegalArgumentException("The receiver's public key is invalid.");
             }
             if (amount > currentUser.getBalance()) {
-                // Debugging: Insufficient funds
                 System.out.println("Insufficient funds.");
                 throw new IllegalArgumentException("You do not have enough balance to complete this transaction.");
             }

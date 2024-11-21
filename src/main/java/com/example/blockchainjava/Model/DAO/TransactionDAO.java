@@ -26,10 +26,10 @@ public class TransactionDAO {
             stmt.setString(4, transaction.getStatus().toString());
             stmt.setObject(5, transaction.getBlockId() != null ? transaction.getBlockId() : null, Types.INTEGER);
             if (transaction.getCreatedAt() == null) {
-                transaction.setCreatedAt(LocalDateTime.now());  // Set current time if it's null
+                transaction.setCreatedAt(LocalDateTime.now());
             }
 
-            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt())); // Convert LocalDateTime to Timestamp
+            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt()));
             stmt.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save transaction", e);
