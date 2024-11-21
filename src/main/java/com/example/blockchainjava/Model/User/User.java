@@ -6,8 +6,11 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.UUID;
 
+import static java.lang.Math.incrementExact;
+import static java.lang.Math.random;
+
 public class User {
-    private String id;
+    private int id;
     protected String username;
     private String password; // Stored hashed
     private UserRole role;
@@ -16,7 +19,7 @@ public class User {
     private String publicKey;
     private double balance ;
     public User(String username, String password, UserRole role) {
-        this.id = UUID.randomUUID().toString();
+        this.id=incrementExact(getId());
         this.username = username;
         this.password = password;
         this.role = role;
@@ -29,11 +32,15 @@ public class User {
         this.balance = balance;
     }
 
-    public String getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public double getBalance() {
+        return balance;
+    }
+
+    public void setId(int id) {
         this.id = id;
     }
 

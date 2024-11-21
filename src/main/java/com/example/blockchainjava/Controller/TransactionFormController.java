@@ -1,5 +1,6 @@
 package com.example.blockchainjava.Controller;
 
+import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Util.Network.SocketClient;
@@ -19,6 +20,7 @@ public class TransactionFormController {
     private TextField receiverField;
     @FXML
     private TextField amountField;
+    private TransactionDAO transactionDAO;
 
     private final Connection connection;
 
@@ -26,6 +28,7 @@ public class TransactionFormController {
     public TransactionFormController() {
         // Initialize the database connection
         this.connection = DatabaseConnection.getConnection();
+        transactionDAO=new TransactionDAO();
     }
 
     // Method to handle form submission
@@ -52,6 +55,12 @@ public class TransactionFormController {
                 System.out.println("Invalid receiver public key.");
                 throw new IllegalArgumentException("The receiver's public key is invalid.");
             }
+            if (amount > currentUser.getBalance()) {
+                // Debugging: Insufficient funds
+                System.out.println("Insufficient funds.");
+                throw new IllegalArgumentException("You do not have enough balance to complete this transaction.");
+            }
+
 
             // Step 2: Create transaction
             Transaction transaction = new Transaction(
@@ -63,7 +72,7 @@ public class TransactionFormController {
 
             // Debugging: Print transaction details
             System.out.println("Transaction created: " + transaction);
-
+            transactionDAO.saveTransaction(transaction);
             // TODO: Save transaction to database or send it to the blockchain network
             // Example: SocketClient.sendTransaction(transaction);
 

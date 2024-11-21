@@ -3,109 +3,144 @@ package com.example.blockchainjava.Controller;
 import com.example.blockchainjava.Model.Block.Block;
 import com.example.blockchainjava.Model.Block.BlockChain;
 import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.example.blockchainjava.Model.User.Client;
+import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.User.Validator;
 import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
+import com.example.blockchainjava.Model.DAO.UserDAO;
 
 import javafx.scene.control.Alert;
 import javafx.fxml.FXML;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.ServerSocket;
+import java.security.NoSuchAlgorithmException;
+import java.sql.SQLException;
 import java.util.List;
 
 public class ValidatorDashboardController implements BlockchainUpdateObserver {
+    private UserDAO userDAO;
 
     @FXML
-    private TableView<Block> blockTable; // Table des blocs dans la blockchain
+    private TableView<Block> blockTable;
+
     @FXML
-    private TableView<Transaction> pendingTransactionsTable; // Table des transactions en attente
+    private TableView<Transaction> pendingTransactionsTable;
 
-    private Validator validator; // Le validateur (utilisateur actuel)
-    private BlockChain blockchain; // La blockchain associée
-    private SocketServer socketServer; // Serveur réseau pour gérer les communications
+    @FXML
+    private TableView<Client> userTable;
 
-    public ValidatorDashboardController() {
-        // Constructeur sans argument requis pour le chargement FXML
+    @FXML
+    private TextField balanceField;
+    @FXML
+    private TextField clientIdField;
+
+    @FXML
+    private TextField clientBalanceField;
+    @FXML
+    private TableColumn<Client, Integer> id;
+    @FXML
+    private TableColumn<Client, String> clientNameColumn;
+    @FXML
+    private TableColumn<Client, Double> clientBalanceColumn;
+
+
+    private Validator validator;
+    private BlockChain blockchain;
+    private SocketServer socketServer;
+
+    public ValidatorDashboardController() throws NoSuchAlgorithmException {
+        this.userDAO = new UserDAO(); // Initialisation du DAO
+        this.blockchain = new BlockChain();
+        this.validator = new Validator();
     }
 
-    /**
-     * Méthode appelée automatiquement après le chargement de la vue FXML.
-     */
     @FXML
     public void initialize() {
         try {
-            // Vérification que la blockchain et le validateur sont initialisés
-            // Note : Assurez-vous que `blockchain` et `validator` sont définis avant d'appeler `initialize`.
-            // Si cette condition n'est pas respectée, certaines fonctionnalités ne fonctionneront pas correctement.
+            id.setCellValueFactory(cellData -> cellData.getValue().getIdProperty().asObject());
+            clientNameColumn.setCellValueFactory(cellData -> cellData.getValue().getNameProperty());
+            clientBalanceColumn.setCellValueFactory(cellData -> cellData.getValue().getBalanceProperty().asObject());
+
             if (blockchain == null || validator == null) {
-                // throw new IllegalStateException("Blockchain and Validator must be initialized before calling initialize.");
-                System.out.println("Warning: Blockchain and Validator are not initialized. Some features may not work.");
-                return; // Ne pas poursuivre l'initialisation si les dépendances ne sont pas prêtes
+                System.out.println("Warning: Blockchain and Validator are not initialized.");
+                return;
             }
 
-            // Ajouter un observateur pour écouter les mises à jour de la blockchain
             blockchain.addObserver(this);
 
-            // Démarrer un serveur socket pour gérer les communications
-            ServerSocket serverSocket = new ServerSocket(8080);
-            socketServer = new SocketServer(blockchain, serverSocket, validator);
-            new Thread(socketServer::start).start();
+            try {
+                ServerSocket serverSocket = new ServerSocket(8080);
+                socketServer = new SocketServer(blockchain, serverSocket, validator);
+                new Thread(socketServer::start).start();
+            } catch (BindException e) {
+                showError("Socket Error", "Port 8080 is already in use. Please try a different port.");
+                return;
+            }
 
-            // Mettre à jour la vue avec les données actuelles
             updateBlockchainView();
-
+            updateUserTableView(); // Add this line to update the user table view
         } catch (IOException e) {
             showError("Error initializing Validator Dashboard", "Failed to start socket server: " + e.getMessage());
         }
     }
 
-    /**
-     * Méthode appelée lorsqu'une mise à jour de la blockchain est détectée.
-     *
-     * @param updatedBlockchain La blockchain mise à jour.
-     */
+
     @Override
     public void onBlockchainUpdate(BlockChain updatedBlockchain) {
-        this.blockchain = updatedBlockchain; // Mettre à jour la blockchain locale
-        updateBlockchainView(); // Mettre à jour les vues
+        this.blockchain = updatedBlockchain;
+        updateBlockchainView();
     }
 
-    /**
-     * Met à jour la vue des blocs et des transactions en attente.
-     */
     private void updateBlockchainView() {
         if (blockchain != null) {
-            // Mettre à jour la table des blocs
             List<Block> blocks = blockchain.getBlocks();
             ObservableList<Block> blockList = FXCollections.observableArrayList(blocks);
             blockTable.setItems(blockList);
 
-            // Mettre à jour la table des transactions en attente
             List<Transaction> pendingTransactions = blockchain.getPendingTransactions();
             ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList(pendingTransactions);
             pendingTransactionsTable.setItems(pendingTransactionsList);
+
+            // Mise à jour de la table des utilisateurs si nécessaire
+            updateUserTableView();
         }
     }
 
-    /**
-     * Valide une transaction sélectionnée dans la table des transactions en attente.
-     */
+    private void updateUserTableView() {
+        try {
+            // Récupérer les clients via le DAO
+            List<Client> clients = userDAO.getAllClients(); // Récupérer les clients depuis le DAO
+            System.out.println("Clients retrieved: " + clients.size());  // Vérifier la taille de la liste
+
+            // Convertir la liste de clients en une ObservableList
+            ObservableList<Client> clientList = FXCollections.observableArrayList(clients);
+
+            // Mise à jour de la table des clients
+            userTable.setItems(clientList);
+        } catch (Exception e) {
+            showError("User Update Error", "Failed to load clients: " + e.getMessage());
+        }
+    }
+
+
+
+
     @FXML
     private void validateTransaction() {
         Transaction selectedTransaction = pendingTransactionsTable.getSelectionModel().getSelectedItem();
         if (selectedTransaction != null && blockchain != null && validator != null) {
             try {
-                // Signer la transaction et l'ajouter à la blockchain
                 String signature = validator.sign(selectedTransaction);
                 blockchain.addBlock(selectedTransaction, signature);
-
-                // Mettre à jour la vue après la validation
                 updateBlockchainView();
-
             } catch (Exception e) {
                 showError("Validation Error", "Failed to validate transaction: " + e.getMessage());
             }
@@ -113,31 +148,64 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             showError("Validation Error", "No transaction selected or components not initialized.");
         }
     }
+    @FXML
+    private void updateClientBalance() {
+        // Récupération des données de l'interface utilisateur
+        String clientIdText = clientIdField.getText();
+        String balanceText = clientBalanceField.getText();
 
-    /**
-     * Définit le validateur (utilisateur actuel).
-     *
-     * @param validator L'instance du validateur.
-     */
+        if (clientIdText.isEmpty() || balanceText.isEmpty()) {
+            showError("Input Error", "Both fields must be filled.");
+            return;
+        }
+
+        int clientId = Integer.parseInt(clientIdText);
+        double newBalance = Double.parseDouble(balanceText);
+
+        // Validation du solde
+        if (newBalance < 0) {
+            showError("Update Error", "Balance cannot be negative.");
+            return;
+        }
+
+        // Trouver l'utilisateur avec clientId
+        User user = userDAO.findUserById(clientId); // Utiliser le DAO pour trouver l'utilisateur
+        if (user == null) {
+            showError("Update Error", "User not found.");
+            return;
+        }
+
+        // Appel au DAO pour mettre à jour la balance
+        boolean success = userDAO.updateUserBalance(user, newBalance); // Mettre à jour le solde
+        if (success) {
+            showSuccess("Balance updated successfully.", "Bravo! The balance has been updated.");
+            updateUserTableView(); // Actualisation de la table des utilisateurs
+        } else {
+            showError("Update Error", "Failed to update balance. Please try again.");
+        }
+    }
+
+
+
+
+    private void showSuccess(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null); // Pas d'en-tête
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+
+
     public void setValidator(Validator validator) {
         this.validator = validator;
     }
 
-    /**
-     * Définit la blockchain associée.
-     *
-     * @param blockchain L'instance de la blockchain.
-     */
     public void setBlockchain(BlockChain blockchain) {
         this.blockchain = blockchain;
     }
 
-    /**
-     * Affiche une boîte de dialogue d'erreur avec un titre et un message.
-     *
-     * @param title   Le titre de la boîte de dialogue.
-     * @param content Le message de contenu.
-     */
     private void showError(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
