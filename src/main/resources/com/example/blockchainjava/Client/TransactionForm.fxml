@@ -11,20 +11,41 @@
         <Insets top="20" right="20" bottom="20" left="20"/>
     </padding>
 
-    <VBox maxWidth="400" spacing="10">
-        <Label text="Create New Transaction" style="-fx-font-size: 20; -fx-font-weight: bold"/>
+    <center>
+        <VBox maxWidth="400" spacing="15">
+            <Label text="Create New Transaction"
+                   style="-fx-font-size: 20; -fx-font-weight: bold"
+                   alignment="CENTER"/>
 
-        <TextField fx:id="receiverField" promptText="Receiver Address"/>
-        <TextField fx:id="amountField" promptText="Amount"/>
+            <!-- Receiver Address Field -->
+            <TextField fx:id="receiverField"
+                       promptText="Receiver Address"
+                       prefWidth="400"
+                       prefHeight="40"/>
 
-        <TextArea fx:id="noteField" promptText="Transaction Note (Optional)"
-                  prefRowCount="3"/>
+            <!-- Amount Field -->
+            <TextField fx:id="amountField"
+                       promptText="Amount"
+                       prefWidth="400"
+                       prefHeight="40"/>
 
-<!--        <Button text="Send Transaction" onAction="#handleSubmitTransaction"-->
-<!--                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"-->
-<!--                maxWidth="Infinity"/>-->
+            <!-- Note Field -->
+            <TextArea fx:id="noteField"
+                      promptText="Transaction Note (Optional)"
+                      prefWidth="400"
+                      prefHeight="100"/>
 
-        <Label fx:id="statusLabel" wrapText="true"/>
-    </VBox>
+            <!-- Send button -->
+            <Button text="Send" onAction="#submitTransaction"
+                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 14; -fx-font-weight: bold;"
+                    maxWidth="Infinity"/>
+
+            <!-- Status Label -->
+            <Label fx:id="statusLabel"
+                   wrapText="true"
+                   style="-fx-text-fill: red;"
+                   prefWidth="400"/>
+        </VBox>
+    </center>
 
 </BorderPane>

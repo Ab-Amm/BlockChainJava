@@ -4,9 +4,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 <?import com.example.blockchainjava.Controller.*?>
-
-
-<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.Controller.ClientDashboardController" >
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.Controller.ClientDashboardController">
 
     <top>
         <HBox spacing="10" style="-fx-background-color: #2196F3; -fx-padding: 10;">
@@ -14,7 +12,6 @@
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="usernameLabel" style="-fx-text-fill: white;"/>
             <Label fx:id="balanceLabel" style="-fx-text-fill: white;"/>
-            <!-- <Button text="Logout" onAction="#handleLogout"/> -->
         </HBox>
     </top>
 
@@ -28,18 +25,17 @@
                     <padding>
                         <Insets top="10" right="10" bottom="10" left="10"/>
                     </padding>
-                    <TableView fx:id="transactionTable" VBox.vgrow="ALWAYS">
+                    <TableView fx:id="transactionTable" VBox.vgrow="ALWAYS" prefHeight="400">
                         <columns>
-                            <TableColumn fx:id="transactionIdColumn" text="Transaction ID"/>
-                            <TableColumn fx:id="dateColumn" text="Date"/>
-                            <TableColumn fx:id="typeColumn" text="Type"/>
-                            <TableColumn fx:id="amountColumn" text="Amount"/>
-                            <TableColumn fx:id="statusColumn" text="Status"/>
-                            <TableColumn fx:id="blockIdColumn" text="Block ID"/>
+                            <TableColumn fx:id="transactionIdColumn" text="Transaction ID" prefWidth="200"/>
+                            <TableColumn fx:id="dateColumn" text="Date" prefWidth="150"/>
+                            <TableColumn fx:id="typeColumn" text="Type" prefWidth="150"/>
+                            <TableColumn fx:id="amountColumn" text="Amount" prefWidth="150"/>
+                            <TableColumn fx:id="statusColumn" text="Status" prefWidth="150"/>
+                            <TableColumn fx:id="blockIdColumn" text="Block ID" prefWidth="150"/>
                         </columns>
                     </TableView>
                 </VBox>
-
             </Tab>
         </TabPane>
     </center>

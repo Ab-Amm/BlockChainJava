@@ -1,7 +1,7 @@
 package com.example.blockchainjava.Model.DAO;
 
 import com.example.blockchainjava.Model.Block.Block;
-import com.mysql.cj.log.NullLogger;
+
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ public class BlockDAO {
     }
 
     public List<Block> getAllBlocks() {
-      List<Block> blocks = new ArrayList<>();
+        List<Block> blocks = new ArrayList<>();
 //        String sql = "SELECT * FROM blocks ORDER BY block_id";
 //
 //        try (PreparedStatement stmt = connection.prepareStatement(sql);

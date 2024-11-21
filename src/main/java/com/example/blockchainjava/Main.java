@@ -29,6 +29,7 @@ public class Main extends Application {
         // Initialize database connection
         DatabaseConnection.getConnection();
 
+
         // Start the application
         launch(args);
     }

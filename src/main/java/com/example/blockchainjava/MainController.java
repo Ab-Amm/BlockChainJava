@@ -61,6 +61,7 @@ public class MainController {
             User user = userDAO.getUserByUsername(username);
             user.toString();
             if (user != null && HashUtil.verifyPassword(password, user.getPassword())) {
+                Session.setCurrentUser(user);
                 openDashboard(user);  // Ouvre le dashboard approprié en fonction du rôle
             } else {
                 showAlert(Alert.AlertType.ERROR, "Login Error", "Invalid username or password");
