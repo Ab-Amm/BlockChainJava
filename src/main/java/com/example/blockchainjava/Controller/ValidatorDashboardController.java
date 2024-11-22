@@ -10,6 +10,7 @@ import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 
+import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.fxml.FXML;
 import javafx.collections.FXCollections;
@@ -21,6 +22,7 @@ import javafx.scene.control.TextField;
 import java.io.IOException;
 import java.net.BindException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.List;
@@ -76,43 +78,64 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
             blockchain.addObserver(this);
 
-            try {
-                ServerSocket serverSocket = new ServerSocket(8080);
-                socketServer = new SocketServer(blockchain, serverSocket, validator);
-                new Thread(socketServer::start).start();
-            } catch (BindException e) {
-                showError("Socket Error", "Port 8080 is already in use. Please try a different port.");
-                return;
-            }
+            // Créer un thread pour écouter les connexions des clients
+            new Thread(() -> startSocketServer(8080)).start();
 
             updateBlockchainView();
-            updateUserTableView(); // Add this line to update the user table view
-        } catch (IOException e) {
-            showError("Error initializing Validator Dashboard", "Failed to start socket server: " + e.getMessage());
+            updateUserTableView();
+        } catch (Exception e) {
+            showError("Initialization Error", "An error occurred during initialization: " + e.getMessage());
         }
     }
+
+    private void startSocketServer(int port) {
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            System.out.println("Validator is listening on port " + port);
+            while (true) {
+                Socket clientSocket = serverSocket.accept(); // Accepter une connexion entrante
+
+                // Interaction avec l'interface utilisateur sur le thread JavaFX
+                Platform.runLater(() -> {
+                    System.out.println("New socket received from: " + clientSocket.getInetAddress());
+                    showSuccess("Socket Received", "Socket received from: " + clientSocket.getInetAddress());
+                });
+
+                // Traite le socket si nécessaire (sur le thread actuel)
+            }
+        } catch (BindException e) {
+            Platform.runLater(() -> showError("Socket Error", "Port " + port + " is already in use. Please try a different port."));
+        } catch (IOException e) {
+            Platform.runLater(() -> showError("Socket Error", "An error occurred while receiving a socket: " + e.getMessage()));
+        }
+    }
+
 
 
     @Override
     public void onBlockchainUpdate(BlockChain updatedBlockchain) {
         this.blockchain = updatedBlockchain;
-        updateBlockchainView();
+
+        // Met à jour la vue sur le thread JavaFX
+        Platform.runLater(() -> updateBlockchainView());
     }
+
 
     private void updateBlockchainView() {
-        if (blockchain != null) {
-            List<Block> blocks = blockchain.getBlocks();
-            ObservableList<Block> blockList = FXCollections.observableArrayList(blocks);
-            blockTable.setItems(blockList);
+        Platform.runLater(() -> {
+            if (blockchain != null) {
+                List<Block> blocks = blockchain.getBlocks();
+                ObservableList<Block> blockList = FXCollections.observableArrayList(blocks);
+                blockTable.setItems(blockList);
 
-            List<Transaction> pendingTransactions = blockchain.getPendingTransactions();
-            ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList(pendingTransactions);
-            pendingTransactionsTable.setItems(pendingTransactionsList);
+                List<Transaction> pendingTransactions = blockchain.getPendingTransactions();
+                ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList(pendingTransactions);
+                pendingTransactionsTable.setItems(pendingTransactionsList);
 
-            // Mise à jour de la table des utilisateurs si nécessaire
-            updateUserTableView();
-        }
+                updateUserTableView();
+            }
+        });
     }
+
 
     private void updateUserTableView() {
         try {

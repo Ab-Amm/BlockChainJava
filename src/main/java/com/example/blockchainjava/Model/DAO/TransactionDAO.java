@@ -135,5 +135,61 @@ public class TransactionDAO {
         }
         return null;
     }
+    // Récupérer les transactions par statut
+    public List<Transaction> getTransactionsByStatus(TransactionStatus status) {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql = "SELECT * FROM transactions WHERE status = ? ORDER BY created_at DESC";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, status.toString());
+
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Transaction transaction = new Transaction(
+                        rs.getInt("id"),
+                        rs.getInt("sender_id"),
+                        rs.getString("receiver_key"),
+                        rs.getDouble("amount"),
+                        TransactionStatus.valueOf(rs.getString("status")),
+                        rs.getInt("block_id"),
+                        rs.getTimestamp("created_at").toLocalDateTime()
+                );
+                transactions.add(transaction);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load transactions by status", e);
+        }
+        return transactions;
+    }
+
+    // Mettre à jour une transaction existante
+    public void updateTransaction(Transaction transaction) {
+        String sql = "UPDATE transactions SET sender_id = ?, receiver_key = ?, amount = ?, status = ?, block_id = ?, created_at = ?, signature = ? WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, transaction.getSenderId());
+            stmt.setString(2, transaction.getReceiverKey());
+            stmt.setDouble(3, transaction.getAmount());
+            stmt.setString(4, transaction.getStatus().toString());
+            stmt.setObject(5, transaction.getBlockId(), Types.INTEGER);
+
+            // Vérifie si la date de création est null et assigne la date actuelle
+            if (transaction.getCreatedAt() == null) {
+                transaction.setCreatedAt(LocalDateTime.now());
+            }
+            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt())); // Conversion LocalDateTime à Timestamp
+
+            // Mettre à jour la signature
+            stmt.setString(7, transaction.getSignature());
+            stmt.setInt(8, transaction.getId());
+
+            // Exécution de la mise à jour
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update transaction", e);
+        }
+    }
+
 
 }

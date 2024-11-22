@@ -1,10 +1,15 @@
 package com.example.blockchainjava.Controller;
 
+import com.example.blockchainjava.Model.DAO.DatabaseConnection;
+import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.DAO.UserDAO;
+import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import com.example.blockchainjava.Model.User.Admin;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.User.UserRole;
 import com.example.blockchainjava.Model.User.Validator;
+import com.example.blockchainjava.Util.Network.SocketClient;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -12,8 +17,13 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 
 public class AdminDashboardController {
 
@@ -48,6 +58,7 @@ public class AdminDashboardController {
     private Admin admin;
     private UserDAO userDAO;
     private ObservableList<Validator> validatorList;
+    private final Connection connection;
 
 
     @FXML
@@ -59,8 +70,67 @@ public class AdminDashboardController {
     }
 
     public AdminDashboardController() {
+        this.connection = DatabaseConnection.getConnection();
         userDAO = new UserDAO();
+
     }
+    private List<SocketClient> getValidators() {
+        List<SocketClient> validators = new ArrayList<>();
+        String sql = "SELECT ip_address, port FROM validators"; // Table 'validators' avec colonnes 'ip_address' et 'port'
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                String ip = rs.getString("ip_address");
+                int port = rs.getInt("port");
+                validators.add(new SocketClient(ip, port));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error fetching validators from database: " + e.getMessage());
+        }
+
+        return validators;
+    }
+    public void broadcastPendingTransactions() {
+        TransactionDAO transactionDAO = new TransactionDAO(); // Créez une instance de TransactionDAO
+
+        // Récupérer les transactions avec le statut PENDING
+        List<Transaction> pendingTransactions = transactionDAO.getTransactionsByStatus(TransactionStatus.PENDING);
+
+        for (Transaction transaction : pendingTransactions) {
+            for (SocketClient validator : getValidators()) {
+                try {
+                    // Établir une connexion avec le validateur
+                    validator.connect();
+
+                    // Envoyer la transaction au validateur
+                    validator.sendTransaction(transaction);
+
+                    // Recevoir la réponse du validateur
+                    String response = validator.receiveResponse();
+
+                    // Mettre à jour le statut de la transaction en fonction de la réponse
+                    if ("ACCEPTED".equals(response)) {
+                        transaction.setStatus(TransactionStatus.VALIDATED);
+                    } else {
+                        transaction.setStatus(TransactionStatus.REJECTED);
+                    }
+
+                    validator.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    // En cas d'échec, rejeter la transaction
+                    transaction.setStatus(TransactionStatus.REJECTED);
+                } finally {
+                    // Mettre à jour la transaction dans la base de données
+                    transactionDAO.updateTransaction(transaction);
+                }
+            }
+        }
+    }
+
 
     public void setAdmin(Admin admin) {
         this.admin = admin;

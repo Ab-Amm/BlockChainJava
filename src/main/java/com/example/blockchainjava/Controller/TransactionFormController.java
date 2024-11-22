@@ -102,17 +102,8 @@ public class TransactionFormController {
             transactionDAO.saveTransaction(transaction);
             System.out.println("Transaction saved in database.");
 
-            // Retrieve the latest transaction from the database to ensure consistency
-            Transaction savedTransaction = transactionDAO.getLatestTransaction(
-                    currentUser.getId(),
-                    receiverPublicKey,
-                    amount,
-                    TransactionStatus.PENDING
-            );
 
-            System.out.println("Retrieved transaction from database: " + savedTransaction);
-
-            if (savedTransaction != null) {
+            if (transaction != null) {
                 // Send the transaction to all validators
                 List<SocketClient> validators = getValidators();
                 System.out.println("Validators list: " + validators);
@@ -125,7 +116,7 @@ public class TransactionFormController {
 
                         System.out.println("Sending transaction to validator...");
                         // Send the transaction
-                        validator.sendTransaction(savedTransaction);
+                        validator.sendTransaction(transaction);
 
                         // Receive the response from the validator
                         String response = validator.receiveResponse();
