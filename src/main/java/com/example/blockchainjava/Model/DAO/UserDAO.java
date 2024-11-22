@@ -1,6 +1,7 @@
 package com.example.blockchainjava.Model.DAO;
 
 import com.example.blockchainjava.Model.User.*;
+import com.example.blockchainjava.Util.Security.EncryptionUtil;
 import com.example.blockchainjava.Util.Security.HashUtil;
 
 import java.security.NoSuchAlgorithmException;
@@ -22,15 +23,18 @@ public class UserDAO {
         String hashedPassword = HashUtil.hashPassword(user.getPassword());
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+
             stmt.setString(1, user.getUsername());
             stmt.setString(2, user.getRole().toString());
             stmt.setTimestamp(3, Timestamp.valueOf(user.getCreatedAt()));
             stmt.setString(4, hashedPassword);
             stmt.setString(5, user.getPublicKey());
-            stmt.setString(6, user.getPrivateKey());
+            stmt.setString(6, EncryptionUtil.encrypt(user.getPrivateKey()));
             stmt.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save user: " + user.getUsername(), e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
     public void saveUser(User user , double balance ) {
@@ -46,10 +50,12 @@ public class UserDAO {
             stmt.setString(4, hashedPassword);
             stmt.setDouble(5,balance);
             stmt.setString(6, user.getPublicKey());
-            stmt.setString(7, user.getPrivateKey());
+            stmt.setString(7, EncryptionUtil.encrypt(user.getPrivateKey()));
             stmt.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save user: " + user.getUsername(), e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
     public void saveValidator(Validator validator, String ipAddress, int port) {
@@ -120,20 +126,20 @@ public class UserDAO {
                 user.setId(rs.getInt("id"));
                 user.setBalance(rs.getDouble("balance"));
                 user.setPublicKey(rs.getString("public_key"));
-                user.setPrivateKey(rs.getString("private_key"));
+                user.setPrivateKey(EncryptionUtil.decrypt(rs.getString("private_key")));
                 return user;
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to load user with username: " + username, e);
         } catch (IllegalStateException e) {
             throw new RuntimeException("Unknown role for user: " + username, e);
-        } catch (NoSuchAlgorithmException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return null;
     }
 
-    private User createUserFromResultSet(ResultSet rs, UserRole role) throws SQLException, NoSuchAlgorithmException {
+    private User createUserFromResultSet(ResultSet rs, UserRole role) throws Exception {
         User user = switch (role) {
             case CLIENT -> new Client(
                     rs.getString("username"),
@@ -152,7 +158,7 @@ public class UserDAO {
 
         // Set public and private keys
         user.setPublicKey(rs.getString("public_key"));
-        user.setPrivateKey(rs.getString("private_key"));
+        user.setPrivateKey(EncryptionUtil.decrypt(rs.getString("private_key")));
         user.setBalance(rs.getDouble("balance"));
         return user;
     }
@@ -168,7 +174,7 @@ public class UserDAO {
             stmt.setTimestamp(3, Timestamp.valueOf(user.getCreatedAt()));
             stmt.setString(4, hashedPassword);
             stmt.setString(5, user.getPublicKey());
-            stmt.setString(6, user.getPrivateKey());
+            stmt.setString(6, EncryptionUtil.encrypt(user.getPrivateKey()));
             stmt.setString(7, user.getUsername()); // Assuming you're updating by username
 
             int rowsUpdated = stmt.executeUpdate();
@@ -179,6 +185,8 @@ public class UserDAO {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to update user: " + user.getUsername(), e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -198,7 +206,7 @@ public class UserDAO {
                 );
                 // Set other properties if needed
                 validator.setPublicKey(rs.getString("public_key"));
-                validator.setPrivateKey(rs.getString("private_key"));
+                validator.setPrivateKey(EncryptionUtil.decrypt(rs.getString("private_key")));
                 // Add the Validator to the list
                 validatorList.add(validator);
             }
@@ -206,6 +214,8 @@ public class UserDAO {
             throw new RuntimeException("Failed to load validators", e);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Error while processing algorithm", e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
 
         return validatorList;
@@ -332,13 +342,15 @@ public class UserDAO {
                 User user = createUserFromResultSet(rs, role);
                 // Définit la clé publique et la clé privée
                 user.setPublicKey(rs.getString("public_key"));
-                user.setPrivateKey(rs.getString("private_key"));
+                user.setPrivateKey(EncryptionUtil.decrypt(rs.getString("private_key")));
                 return user;
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to load user with ID: " + clientId, e);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Error processing algorithm", e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
         return null; // Retourne null si aucun utilisateur n'est trouvé
     }

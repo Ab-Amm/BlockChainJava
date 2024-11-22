@@ -14,7 +14,7 @@ module com.example.blockchainjava {
     requires com.almasb.fxgl.all;
     requires jbcrypt;
     requires annotations;
-    requires mysql.connector.java;
+    requires mysql.connector.j;
     requires com.fasterxml.jackson.databind;
     requires java.sql;
 

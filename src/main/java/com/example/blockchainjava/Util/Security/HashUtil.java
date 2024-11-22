@@ -77,45 +77,7 @@ public class HashUtil {
     public static String generateAddress(String publicKey) {
         return sha256(publicKey).substring(0, 40);
     }
-    public static void main(String[] args) {
-        // Vérifier si l'admin existe déjà
-        String checkAdminSQL = "SELECT COUNT(*) FROM users WHERE username = ?";
 
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement stmt = connection.prepareStatement(checkAdminSQL)) {
-
-            stmt.setString(1, "admin");
-
-            // Exécuter la requête pour vérifier si l'admin existe déjà
-            ResultSet resultSet = stmt.executeQuery();
-            if (resultSet.next() && resultSet.getInt(1) == 0) {
-                // L'admin n'existe pas, donc nous allons l'ajouter
-
-                // Mot de passe par défaut pour l'admin
-                String password = "admin123";
-                String hashedPassword = HashUtil.hashPassword(password);
-
-                // Insertion de l'admin dans la base de données
-                String insertAdminSQL = "INSERT INTO users (username, role, created_at, password) VALUES (?, ?, ?, ?)";
-
-                try (PreparedStatement insertStmt = connection.prepareStatement(insertAdminSQL)) {
-                    insertStmt.setString(1, "admin");
-                    insertStmt.setString(2, "ADMIN");
-                    insertStmt.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()));
-                    insertStmt.setString(4, hashedPassword);
-                    insertStmt.executeUpdate();
-                    System.out.println("Admin inséré avec succès dans la base de données.");
-
-                }
-            } else {
-                System.out.println("L'utilisateur admin existe déjà dans la base de données.");
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("Erreur lors de la vérification/insertion de l'admin.");
-        }
-    }
 }
 
 
