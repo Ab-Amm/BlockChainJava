@@ -8,6 +8,7 @@ import com.example.blockchainjava.Util.Network.SocketClient;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import com.example.blockchainjava.Model.User.Session;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextField;
@@ -58,10 +59,10 @@ public class TransactionFormController {
             // Retrieve the current user from the session
             User currentUser = Session.getCurrentUser();
 
-            // Ensure the user is logged in
             if (currentUser == null) {
                 throw new IllegalStateException("No user is currently logged in. Cannot submit transaction.");
             }
+
             System.out.println("Current user: " + currentUser.getUsername() + ", Balance: " + currentUser.getBalance());
 
             String receiverPublicKey = receiverField.getText();
@@ -69,12 +70,10 @@ public class TransactionFormController {
 
             System.out.println("Receiver public key: " + receiverPublicKey + ", Amount: " + amount);
 
-            // Validate receiver public key
             if (!isValidReceiverPublicKey(receiverPublicKey)) {
                 throw new IllegalArgumentException("The receiver's public key is invalid.");
             }
 
-            // Check if user has sufficient balance
             if (amount > currentUser.getBalance()) {
                 throw new IllegalArgumentException("You do not have enough balance to complete this transaction.");
             }
@@ -89,7 +88,6 @@ public class TransactionFormController {
 
             System.out.println("Transaction created: " + transaction);
 
-            // Decode the user's private key and sign the transaction
             PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
             System.out.println("Private key decoded successfully.");
 
@@ -102,51 +100,70 @@ public class TransactionFormController {
             transactionDAO.saveTransaction(transaction);
             System.out.println("Transaction saved in database.");
 
+            // Create a background task for sending the transaction to validators
+            javafx.concurrent.Task<Void> sendTransactionTask = new javafx.concurrent.Task<>() {
+                @Override
+                protected Void call() {
+                    List<SocketClient> validators = getValidators();
+                    System.out.println("Validators list: " + validators);
 
-            if (transaction != null) {
-                // Send the transaction to all validators
-                List<SocketClient> validators = getValidators();
-                System.out.println("Validators list: " + validators);
+                    for (SocketClient validator : validators) {
+                        try {
+                            System.out.println("Connecting to validator: " + validator);
+                            validator.connect();
 
-                for (SocketClient validator : validators) {
-                    try {
-                        System.out.println("Connecting to validator: " + validator);
-                        // Connect to the validator
-                        validator.connect();
+                            System.out.println("Sending transaction to validator...");
+                            validator.sendTransaction(transaction);
 
-                        System.out.println("Sending transaction to validator...");
-                        // Send the transaction
-                        validator.sendTransaction(transaction);
+                            String response = validator.receiveResponse();
+                            System.out.println("Validator response: " + response);
 
-                        // Receive the response from the validator
-                        String response = validator.receiveResponse();
-                        System.out.println("Validator response: " + response);
-
-                        // Close the connection
-                        validator.close();
-                        System.out.println("Connection to validator closed.");
-                    } catch (Exception e) {
-                        // Handle errors for each validator
-                        System.out.println("Error sending transaction to validator: " + validator);
-                        e.printStackTrace(); // Log stack trace for debugging
+                            validator.close();
+                            System.out.println("Connection to validator closed.");
+                        } catch (Exception e) {
+                            System.out.println("Error sending transaction to validator: " + validator);
+                            e.printStackTrace();
+                        } finally {
+                            try {
+                                validator.close();
+                            } catch (Exception ignored) {}
+                        }
                     }
+                    return null;
                 }
-            }
+
+                @Override
+                protected void succeeded() {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Success");
+                    alert.setHeaderText("Transaction Submitted");
+                    alert.setContentText("Your transaction has been submitted and sent to the validators.");
+                    alert.showAndWait();
+                }
+
+                @Override
+                protected void failed() {
+                    Throwable e = getException();
+                    e.printStackTrace();
+
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Error");
+                    alert.setHeaderText("Transaction failed");
+                    alert.setContentText("Error details: " + e.getMessage());
+                    alert.showAndWait();
+                }
+            };
+
+            // Run the task in a background thread
+            new Thread(sendTransactionTask).start();
 
             // Clear the form
             receiverField.clear();
             amountField.clear();
 
-            // Notify user of successful submission
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Success");
-            alert.setHeaderText("Transaction Submitted");
-            alert.setContentText("Your transaction has been submitted and sent to the validators.");
-            alert.showAndWait();
         } catch (Exception e) {
             e.printStackTrace();
 
-            // Handle exception and show error alert
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Error");
             alert.setHeaderText("Transaction failed");
@@ -156,6 +173,7 @@ public class TransactionFormController {
             System.out.println("=== End of submitTransaction ===");
         }
     }
+
 
 
 

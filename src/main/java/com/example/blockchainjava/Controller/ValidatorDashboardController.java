@@ -19,7 +19,10 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -78,7 +81,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
             blockchain.addObserver(this);
 
-            // Créer un thread pour écouter les connexions des clients
+
             new Thread(() -> startSocketServer(8080)).start();
 
             updateBlockchainView();
@@ -91,16 +94,43 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private void startSocketServer(int port) {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("Validator is listening on port " + port);
+
             while (true) {
                 Socket clientSocket = serverSocket.accept(); // Accepter une connexion entrante
 
-                // Interaction avec l'interface utilisateur sur le thread JavaFX
-                Platform.runLater(() -> {
-                    System.out.println("New socket received from: " + clientSocket.getInetAddress());
-                    showSuccess("Socket Received", "Socket received from: " + clientSocket.getInetAddress());
-                });
+                // Thread pour traiter la connexion
+                new Thread(() -> {
+                    try {
+                        InputStream inputStream = clientSocket.getInputStream();
+                        StringBuilder receivedData = new StringBuilder();
 
-                // Traite le socket si nécessaire (sur le thread actuel)
+                        int data;
+                        // Lire les données envoyées par le client byte par byte
+                        while ((data = inputStream.read()) != -1) {
+                            receivedData.append((char) data);
+                        }
+
+                        // Afficher les données reçues dans la console
+                        System.out.println("Received data: " + receivedData);
+
+                        // Interaction avec l'interface utilisateur
+                        Platform.runLater(() -> {
+                            showSuccess(
+                                    "Socket Received",
+                                    "Data received from: " + clientSocket.getInetAddress() + "\nContent:\n" + receivedData
+                            );
+                        });
+
+                    } catch (IOException e) {
+                        Platform.runLater(() -> showError("Socket Error", "Error reading data: " + e.getMessage()));
+                    } finally {
+                        try {
+                            clientSocket.close(); // Assurez-vous que la connexion est fermée
+                        } catch (IOException e) {
+                            System.err.println("Error closing client socket: " + e.getMessage());
+                        }
+                    }
+                }).start();
             }
         } catch (BindException e) {
             Platform.runLater(() -> showError("Socket Error", "Port " + port + " is already in use. Please try a different port."));
@@ -108,6 +138,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             Platform.runLater(() -> showError("Socket Error", "An error occurred while receiving a socket: " + e.getMessage()));
         }
     }
+
+
 
 
 
