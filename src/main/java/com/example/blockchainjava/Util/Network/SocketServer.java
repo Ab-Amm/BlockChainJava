@@ -41,7 +41,6 @@ public class SocketServer {
                     sendResponse(clientSocket, "Transaction accepted");
                 }
             } catch (Exception e) {
-                // Handle errors
             }
         }
     }
@@ -54,6 +53,7 @@ public class SocketServer {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        //send
     }
 
     private boolean validateTransaction(Transaction transaction) {
@@ -62,7 +62,6 @@ public class SocketServer {
             return false;
         }
 
-        // Verify that transaction amount is positive
         if (transaction.getAmount() <= 0) {
             return false;
         }

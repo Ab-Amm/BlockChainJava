@@ -98,7 +98,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             while (true) {
                 Socket clientSocket = serverSocket.accept(); // Accepter une connexion entrante
 
-                // Thread pour traiter la connexion
+
                 new Thread(() -> {
                     try {
                         InputStream inputStream = clientSocket.getInputStream();

@@ -31,7 +31,7 @@ public class SocketClient {
 
     public void sendTransaction(Transaction transaction) {
         try {
-            // Convert transaction object to JSON
+
             String transactionJson = new ObjectMapper().writeValueAsString(transaction);
 
             System.out.println("Sending transaction JSON: " + transactionJson);

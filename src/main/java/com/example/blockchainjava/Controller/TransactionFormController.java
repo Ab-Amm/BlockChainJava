@@ -56,7 +56,7 @@ public class TransactionFormController {
         try {
             System.out.println("=== Start of submitTransaction ===");
 
-            // Retrieve the current user from the session
+
             User currentUser = Session.getCurrentUser();
 
             if (currentUser == null) {
@@ -78,7 +78,6 @@ public class TransactionFormController {
                 throw new IllegalArgumentException("You do not have enough balance to complete this transaction.");
             }
 
-            // Create the transaction
             Transaction transaction = new Transaction(
                     currentUser.getId(),
                     receiverPublicKey,
