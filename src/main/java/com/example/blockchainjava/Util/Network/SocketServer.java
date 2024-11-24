@@ -72,7 +72,7 @@ public class SocketServer {
         }
 
         // Verify that transaction sender has enough balance
-        if (blockchain.getBalance(transaction.getSenderId()) >= transaction.getAmount()) {
+        if (blockchain.getBalance(transaction.getSenderId()) < transaction.getAmount()) {
             return false;
         }
 

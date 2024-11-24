@@ -10,6 +10,7 @@ import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.fxml.FXML;
@@ -96,36 +97,31 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             System.out.println("Validator is listening on port " + port);
 
             while (true) {
-                Socket clientSocket = serverSocket.accept(); // Accepter une connexion entrante
-
+                Socket clientSocket = serverSocket.accept();
 
                 new Thread(() -> {
-                    try {
-                        InputStream inputStream = clientSocket.getInputStream();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
                         StringBuilder receivedData = new StringBuilder();
-
-                        int data;
-                        // Lire les données envoyées par le client byte par byte
-                        while ((data = inputStream.read()) != -1) {
-                            receivedData.append((char) data);
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            receivedData.append(line);
                         }
 
-                        // Afficher les données reçues dans la console
-                        System.out.println("Received data: " + receivedData);
+                        // Décoder les données JSON de la transaction
+                        String transactionJson = receivedData.toString();
+                        Transaction transaction = new ObjectMapper().readValue(transactionJson, Transaction.class);
 
-                        // Interaction avec l'interface utilisateur
-                        Platform.runLater(() -> {
-                            showSuccess(
-                                    "Socket Received",
-                                    "Data received from: " + clientSocket.getInetAddress() + "\nContent:\n" + receivedData
-                            );
-                        });
+                        // Ajouter la transaction à la liste des transactions en attente
+                       // blockchain.addPendingTransaction(transaction);
 
-                    } catch (IOException e) {
+                        // Afficher la transaction dans l'interface
+                        Platform.runLater(() -> updatePendingTransactionsTable());
+
+                    } catch (Exception e) {
                         Platform.runLater(() -> showError("Socket Error", "Error reading data: " + e.getMessage()));
                     } finally {
                         try {
-                            clientSocket.close(); // Assurez-vous que la connexion est fermée
+                            clientSocket.close();
                         } catch (IOException e) {
                             System.err.println("Error closing client socket: " + e.getMessage());
                         }
@@ -138,8 +134,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             Platform.runLater(() -> showError("Socket Error", "An error occurred while receiving a socket: " + e.getMessage()));
         }
     }
-
-
 
 
 
@@ -268,4 +262,11 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         alert.setContentText(content);
         alert.showAndWait();
     }
+    private void updatePendingTransactionsTable() {
+        if (blockchain != null) {
+            ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList(blockchain.getPendingTransactions());
+            pendingTransactionsTable.setItems(pendingTransactionsList);
+        }
+    }
+
 }

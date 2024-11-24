@@ -27,13 +27,13 @@
                     </padding>
                     <TableView fx:id="transactionTable" VBox.vgrow="ALWAYS" prefHeight="400">
                         <columns>
-                            <TableColumn fx:id="transactionIdColumn" text="Transaction ID" prefWidth="200"/>
-                            <TableColumn fx:id="dateColumn" text="Date" prefWidth="150"/>
-                            <TableColumn fx:id="typeColumn" text="Type" prefWidth="150"/>
-                            <TableColumn fx:id="amountColumn" text="Amount" prefWidth="150"/>
-                            <TableColumn fx:id="statusColumn" text="Status" prefWidth="150"/>
-                            <TableColumn fx:id="blockIdColumn" text="Block ID" prefWidth="150"/>
+                            <TableColumn fx:id="transactionIdColumn" text="ID" prefWidth="40"/>
+                            <TableColumn fx:id="senderReceiverColumn" text="Sender/Receiver Key" prefWidth="350"/>
+                            <TableColumn fx:id="amountColumn" text="Amount" prefWidth="130"/>
+                            <TableColumn fx:id="statusColumn" text="Status" prefWidth="130"/>
+                            <TableColumn fx:id="dateColumn" text="Date" prefWidth="130"/>
                         </columns>
+
                     </TableView>
                 </VBox>
             </Tab>

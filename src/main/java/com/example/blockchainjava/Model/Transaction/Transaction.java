@@ -1,9 +1,10 @@
 package com.example.blockchainjava.Model.Transaction;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public class Transaction {
+public class Transaction implements Serializable {
     private int id;
     private int senderId;
     private String receiverKey; // Clé publique du destinataire

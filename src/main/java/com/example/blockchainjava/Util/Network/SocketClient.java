@@ -3,18 +3,15 @@ package com.example.blockchainjava.Util.Network;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-
 public class SocketClient {
     private final String host;
     private final int port;
     private Socket socket;
-    private ObjectOutputStream output;
-    private ObjectInputStream input;
+    private BufferedWriter writer;
+    private BufferedReader reader;
 
     public SocketClient(String host, int port) {
         this.host = host;
@@ -22,38 +19,61 @@ public class SocketClient {
     }
 
     public void connect() throws IOException {
-        socket = new Socket(host, port);
-        socket.connect(new InetSocketAddress(host, port), 30000); // Timeout de connexion : 5 secondes
+        socket = new Socket();
+        socket.connect(new InetSocketAddress(host, port), 30000);
         socket.setSoTimeout(30000);
-        output = new ObjectOutputStream(socket.getOutputStream());
-        input = new ObjectInputStream(socket.getInputStream());
+        writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+        reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
     }
 
+    // Méthode pour envoyer une transaction sous forme JSON
     public void sendTransaction(Transaction transaction) {
         try {
-
-            String transactionJson = new ObjectMapper().writeValueAsString(transaction);
-
+            ObjectMapper objectMapper = new ObjectMapper();
+            String transactionJson = objectMapper.writeValueAsString(transaction);
             System.out.println("Sending transaction JSON: " + transactionJson);
 
-            // Send the JSON over the socket
-            output.write(transactionJson.getBytes()); // Envoyer les octets bruts du JSON
-            output.flush();
-        } catch (Exception e) {
-            System.out.println("Error sending transaction: " + e.getMessage());
+            sendData(transactionJson); // Utilise la méthode sendData pour envoyer le JSON
+        } catch (IOException e) {
+            System.err.println("Error sending transaction: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    // Méthode générique pour envoyer des données sous forme de chaîne
+    public void sendData(String data) {
+        try {
+            System.out.println("Sending data: " + data);
 
-
-    public String receiveResponse() throws IOException, ClassNotFoundException {
-        return (String) input.readObject();
+            writer.write(data);
+            writer.newLine(); // Marqueur de fin de message pour séparer les messages
+            writer.flush();
+        } catch (IOException e) {
+            System.err.println("Error sending data: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
-    public void close() throws IOException {
-        if (socket != null && !socket.isClosed()) {
-            socket.close();
+    public String receiveResponse() {
+        try {
+            String response = reader.readLine();
+            System.out.println("Received response: " + response);
+            return response;
+        } catch (IOException e) {
+            System.err.println("Error receiving response: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public void close() {
+        try {
+            if (writer != null) writer.close();
+            if (reader != null) reader.close();
+            if (socket != null && !socket.isClosed()) socket.close();
+        } catch (IOException e) {
+            System.err.println("Error closing socket: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
