@@ -67,94 +67,53 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         this.blockchain = new BlockChain();
         this.validator = new Validator();
     }
-
     @FXML
     public void initialize() {
         try {
+            // Vérification des dépendances critiques
+            if (blockchain == null || validator == null) {
+                System.err.println("Error: Blockchain and Validator are not initialized. Initialization aborted.");
+                showError("Initialization Error", "Blockchain and Validator are required but not initialized.");
+                return;
+            }
+
+            // Configuration des colonnes de la table
             id.setCellValueFactory(cellData -> cellData.getValue().getIdProperty().asObject());
             clientNameColumn.setCellValueFactory(cellData -> cellData.getValue().getNameProperty());
             clientBalanceColumn.setCellValueFactory(cellData -> cellData.getValue().getBalanceProperty().asObject());
 
-            if (blockchain == null || validator == null) {
-                System.out.println("Warning: Blockchain and Validator are not initialized.");
-                return;
-            }
-
+            // Ajouter cet objet comme observateur à la blockchain
             blockchain.addObserver(this);
 
+            // Initialisation du serveur de sockets
+            ServerSocket serverSocket = new ServerSocket(9090);
+            SocketServer socketServer = new SocketServer(blockchain, validator);
 
-            new Thread(() -> startSocketServer(8080)).start();
+            Thread serverThread = new Thread(() -> {
+                try {
+                    socketServer.start(8080); // Démarrer le serveur sur le port 8080
+                } catch (Exception ex) {
+                    System.err.println("Error starting SocketServer: " + ex.getMessage());
+                } finally {
+                    try {
+                        serverSocket.close(); // Assurez-vous que le socket est fermé en cas de problème
+                    } catch (IOException e) {
+                        System.err.println("Error closing ServerSocket: " + e.getMessage());
+                    }
+                }
+            });
+            serverThread.setDaemon(true); // Assurez-vous que le thread serveur se termine avec l'application
+            serverThread.start();
 
+            // Mettre à jour l'interface utilisateur
             updateBlockchainView();
             updateUserTableView();
-        } catch (Exception e) {
-            showError("Initialization Error", "An error occurred during initialization: " + e.getMessage());
-        }
-    }
-
-    private void startSocketServer(int port) {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Validator is listening on port " + port);
-
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-
-                // Lancer un nouveau thread pour chaque connexion client
-                new Thread(() -> {
-                    try (InputStream inputStream = clientSocket.getInputStream()) {
-                        byte[] buffer = new byte[1024];
-                        int bytesRead;
-                        ByteArrayOutputStream dataStream = new ByteArrayOutputStream();
-
-                        while ((bytesRead = inputStream.read(buffer)) != -1) {
-                            dataStream.write(buffer, 0, bytesRead);
-                        }
-
-                        String transactionJson = dataStream.toString("UTF-8").trim();
-                        if (transactionJson.isBlank()) {
-                            throw new IllegalArgumentException("Received empty JSON data from client.");
-                        }
-
-                        if (transactionJson.startsWith("Sending transaction JSON:")) {
-                            transactionJson = transactionJson.substring("Sending transaction JSON:".length()).trim();
-                        }
-
-                        ObjectMapper objectMapper = new ObjectMapper();
-                        objectMapper.readTree(transactionJson); // Validation du JSON
-
-                        Transaction transaction = objectMapper.readValue(transactionJson, Transaction.class);
-                        System.out.println("Transaction parsed: " + transaction);
-
-                        // Ajoutez la transaction à la liste des transactions en attente
-                        //blockchain.addPendingTransaction(transaction);
-
-                        // Mise à jour de l'interface utilisateur
-                        Platform.runLater(this::updatePendingTransactionsTable);
-
-                    } catch (Exception e) {
-                        System.err.println("Error processing client request: " + e.getMessage());
-                        e.printStackTrace();
-                        Platform.runLater(() -> showError("Socket Error", "Error reading data: " + e.getMessage()));
-                    } finally {
-                        try {
-                            clientSocket.close();
-                            System.out.println("Client socket closed.");
-                        } catch (IOException e) {
-                            System.err.println("Error closing client socket: " + e.getMessage());
-                        }
-                    }
-                }).start();
-            }
-        } catch (BindException e) {
-            Platform.runLater(() -> showError("Socket Error", "Port " + port + " is already in use. Please try a different port."));
         } catch (IOException e) {
-            Platform.runLater(() -> showError("Socket Error", "An error occurred while receiving a socket: " + e.getMessage()));
+            showError("Socket Initialization Error", "An error occurred while setting up the socket server: " + e.getMessage());
+        } catch (Exception e) {
+            showError("Initialization Error", "An unexpected error occurred during initialization: " + e.getMessage());
         }
     }
-
-
-
-
 
 
     @Override
