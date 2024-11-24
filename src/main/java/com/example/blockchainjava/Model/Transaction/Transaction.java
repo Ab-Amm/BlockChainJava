@@ -15,6 +15,7 @@ public class Transaction implements Serializable {
     private String signature; // Ajoute l'attribut signature
 
     // Autres attributs, constructeurs, getters et setters
+    public Transaction() {}
 
     public String getSignature() {
         return signature;

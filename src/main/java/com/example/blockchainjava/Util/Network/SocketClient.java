@@ -2,10 +2,13 @@ package com.example.blockchainjava.Util.Network;
 
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+
 public class SocketClient {
     private final String host;
     private final int port;
@@ -26,45 +29,55 @@ public class SocketClient {
         reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
     }
 
-    // Méthode pour envoyer une transaction sous forme JSON
     public void sendTransaction(Transaction transaction) {
         try {
+            // Initialiser l'ObjectMapper et enregistrer le module pour Java 8 Date/Time API
             ObjectMapper objectMapper = new ObjectMapper();
-            String transactionJson = objectMapper.writeValueAsString(transaction);
-            System.out.println("Sending transaction JSON: " + transactionJson);
+            objectMapper.registerModule(new JavaTimeModule());
+            objectMapper.findAndRegisterModules();
+            objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false); // Format ISO-8601 pour les dates
 
-            sendData(transactionJson); // Utilise la méthode sendData pour envoyer le JSON
+            // Convertir l'objet transaction en JSON
+            String transactionJson = objectMapper.writeValueAsString(transaction);
+
+            // Envoyer le JSON via le PrintWriter
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println(transactionJson);
+
+            // Si vous utilisez également un BufferedWriter
+            writer.write(transactionJson);
+            writer.newLine(); // Ajout d'une ligne pour séparer les messages si nécessaire
+            writer.flush();
+
+            // Log de confirmation
+            System.out.println("JSON sent to server: " + transactionJson);
         } catch (IOException e) {
             System.err.println("Error sending transaction: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    // Méthode générique pour envoyer des données sous forme de chaîne
-    public void sendData(String data) {
-        try {
-            System.out.println("Sending data: " + data);
 
-            writer.write(data);
-            writer.newLine(); // Marqueur de fin de message pour séparer les messages
-            writer.flush();
-        } catch (IOException e) {
-            System.err.println("Error sending data: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
 
     public String receiveResponse() {
         try {
-            String response = reader.readLine();
+            socket.setSoTimeout(30000); // Timeout de 30 secondes
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            // Lire la réponse une seule fois
+            String response = in.readLine();
+
+            // Afficher et retourner la même réponse
             System.out.println("Received response: " + response);
             return response;
+
         } catch (IOException e) {
             System.err.println("Error receiving response: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
+
 
     public void close() {
         try {
