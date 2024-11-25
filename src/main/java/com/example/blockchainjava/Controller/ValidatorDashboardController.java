@@ -13,6 +13,7 @@ import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.fxml.FXML;
@@ -67,53 +68,85 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         this.blockchain = new BlockChain();
         this.validator = new Validator();
     }
+
     @FXML
     public void initialize() {
         try {
-            // Vérification des dépendances critiques
-            if (blockchain == null || validator == null) {
-                System.err.println("Error: Blockchain and Validator are not initialized. Initialization aborted.");
-                showError("Initialization Error", "Blockchain and Validator are required but not initialized.");
-                return;
-            }
-
-            // Configuration des colonnes de la table
             id.setCellValueFactory(cellData -> cellData.getValue().getIdProperty().asObject());
             clientNameColumn.setCellValueFactory(cellData -> cellData.getValue().getNameProperty());
             clientBalanceColumn.setCellValueFactory(cellData -> cellData.getValue().getBalanceProperty().asObject());
 
-            // Ajouter cet objet comme observateur à la blockchain
+            if (blockchain == null || validator == null) {
+                System.out.println("Warning: Blockchain and Validator are not initialized.");
+                return;
+            }
+
             blockchain.addObserver(this);
 
-            // Initialisation du serveur de sockets
-            ServerSocket serverSocket = new ServerSocket(9090);
-            SocketServer socketServer = new SocketServer(blockchain, validator);
 
-            Thread serverThread = new Thread(() -> {
-                try {
-                    socketServer.start(8080); // Démarrer le serveur sur le port 8080
-                } catch (Exception ex) {
-                    System.err.println("Error starting SocketServer: " + ex.getMessage());
-                } finally {
-                    try {
-                        serverSocket.close(); // Assurez-vous que le socket est fermé en cas de problème
-                    } catch (IOException e) {
-                        System.err.println("Error closing ServerSocket: " + e.getMessage());
-                    }
-                }
-            });
-            serverThread.setDaemon(true); // Assurez-vous que le thread serveur se termine avec l'application
-            serverThread.start();
+            new Thread(() -> startSocketServer(8080)).start();
 
-            // Mettre à jour l'interface utilisateur
             updateBlockchainView();
             updateUserTableView();
-        } catch (IOException e) {
-            showError("Socket Initialization Error", "An error occurred while setting up the socket server: " + e.getMessage());
         } catch (Exception e) {
-            showError("Initialization Error", "An unexpected error occurred during initialization: " + e.getMessage());
+            showError("Initialization Error", "An error occurred during initialization: " + e.getMessage());
         }
     }
+
+    private void startSocketServer(int port) {
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
+            System.out.println("Validator is listening on port " + port);
+
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+
+                new Thread(() -> {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"))) {
+                        String transactionJson = reader.readLine();
+                        if (transactionJson != null && !transactionJson.trim().isEmpty()) {
+                            if (transactionJson.startsWith("Sending transaction JSON:")) {
+                                transactionJson = transactionJson.substring("Sending transaction JSON:".length()).trim();
+                            }
+
+                            // Create an ObjectMapper instance and register the JavaTimeModule to handle java.time types
+                            ObjectMapper objectMapper = new ObjectMapper();
+                            objectMapper.registerModule(new JavaTimeModule());  // Register the module
+
+                            try {
+                                JsonNode jsonNode = objectMapper.readTree(transactionJson); // Validate JSON
+                                Transaction transaction = objectMapper.treeToValue(jsonNode, Transaction.class);
+                                System.out.println("Received transaction: " + transaction);
+                                //blockchain.addPendingTransaction(transaction); // Add the transaction to the blockchain
+                                Platform.runLater(this::updatePendingTransactionsTable);
+                                Platform.runLater(this::updatePendingTransactionsTable);
+                            } catch (JsonProcessingException e) {
+                                Platform.runLater(() -> showError("Transaction Error", "Failed to parse transaction: " + e.getMessage()));
+                            }
+                        } else {
+                            Platform.runLater(() -> showError("Empty Data", "Received empty transaction data."));
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error processing client request: " + e.getMessage());
+                        Platform.runLater(() -> showError("Socket Error", "Error reading data: " + e.getMessage()));
+                    } finally {
+                        try {
+                            clientSocket.close();
+                            System.out.println("Client socket closed.");
+                        } catch (IOException e) {
+                            System.err.println("Error closing client socket: " + e.getMessage());
+                        }
+                    }
+                }).start();
+            }
+        } catch (BindException e) {
+            Platform.runLater(() -> showError("Socket Error", "Port " + port + " is already in use. Please try a different port."));
+        } catch (IOException e) {
+            Platform.runLater(() -> showError("Socket Error", "An error occurred while receiving a socket: " + e.getMessage()));
+        }
+    }
+
+
+
 
 
     @Override
