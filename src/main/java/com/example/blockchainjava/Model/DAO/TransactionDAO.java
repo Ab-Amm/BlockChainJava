@@ -19,26 +19,45 @@ public class TransactionDAO {
     public void saveTransaction(Transaction transaction) {
         String sql = "INSERT INTO transactions (sender_id, receiver_key, amount, status, block_id, created_at, signature) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (PreparedStatement stmt = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+            // Remplir les valeurs pour l'insertion
             stmt.setInt(1, transaction.getSenderId());
             stmt.setString(2, transaction.getReceiverKey());
             stmt.setDouble(3, transaction.getAmount());
             stmt.setString(4, transaction.getStatus().toString());
-            stmt.setObject(5, transaction.getBlockId() != null ? transaction.getBlockId() : null, Types.INTEGER);
 
-            // Vérifie si la date de création est null et assigne la date actuelle
+            // Gérer le champ block_id (peut être null)
+            if (transaction.getBlockId() != null) {
+                stmt.setInt(5, transaction.getBlockId());
+            } else {
+                stmt.setNull(5, Types.INTEGER);
+            }
+
+            // Gérer la date de création (si null, utiliser la date actuelle)
             if (transaction.getCreatedAt() == null) {
                 transaction.setCreatedAt(LocalDateTime.now());
             }
-            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt())); // Conversion LocalDateTime à Timestamp
+            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt()));
 
-            // Enregistrer la signature
-            stmt.setString(7, transaction.getSignature());  // Ajouter la signature à l'insertion
+            // Ajouter la signature
+            stmt.setString(7, transaction.getSignature());
 
-            // Exécution de l'insertion
-            stmt.executeUpdate();
+            // Exécuter la requête d'insertion
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new RuntimeException("Saving transaction failed, no rows affected.");
+            }
+
+            // Récupérer l'ID auto-généré
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    transaction.setId(generatedKeys.getInt(1)); // Assigner l'ID généré à l'objet Transaction
+                } else {
+                    throw new RuntimeException("Saving transaction failed, no ID obtained.");
+                }
+            }
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to save transaction", e);
+            throw new RuntimeException("Failed to save transaction: " + e.getMessage(), e);
         }
     }
 
