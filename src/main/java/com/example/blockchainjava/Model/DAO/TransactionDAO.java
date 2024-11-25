@@ -14,6 +14,35 @@ public class TransactionDAO {
     public TransactionDAO() {
         this.connection = DatabaseConnection.getConnection();
     }
+    // Récupérer les transactions associées à un client spécifique
+    public List<Transaction> getTransactionsByClient(int clientId) {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql = "SELECT * FROM transactions WHERE sender_id = ? OR receiver_key = ? ORDER BY created_at DESC";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, clientId);
+            stmt.setString(2, String.valueOf(clientId)); // Si la clé publique est basée sur l'ID du client, sinon modifiez selon le format attendu
+
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Transaction transaction = new Transaction(
+                        rs.getInt("id"),
+                        rs.getInt("sender_id"),
+                        rs.getString("receiver_key"),
+                        rs.getDouble("amount"),
+                        TransactionStatus.valueOf(rs.getString("status")),
+                        rs.getObject("block_id", Integer.class), // Nullable block_id
+                        rs.getTimestamp("created_at").toLocalDateTime()
+                );
+                transactions.add(transaction);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load transactions for client: " + clientId, e);
+        }
+        return transactions;
+    }
+
 
     // Sauvegarder une transaction
     public void saveTransaction(Transaction transaction) {
