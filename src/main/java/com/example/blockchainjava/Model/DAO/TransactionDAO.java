@@ -28,7 +28,7 @@ public class TransactionDAO {
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, clientId);
-            stmt.setString(2, String.valueOf(clientId)); // Si nécessaire, modifiez le format attendu pour `receiver_key`
+            stmt.setString(2, String.valueOf(clientId)); // Si nécessaire, modifiez le format attendu pour receiver_key
 
             ResultSet rs = stmt.executeQuery();
 
@@ -43,7 +43,7 @@ public class TransactionDAO {
                         rs.getTimestamp("created_at").toLocalDateTime()
                 );
 
-                // Ajoutez le `receiver_username` en tant qu'attribut temporaire ou dans la logique de votre classe Transaction
+                // Ajoutez le receiver_username en tant qu'attribut temporaire ou dans la logique de votre classe Transaction
                 transaction.setReceiverUsername(rs.getString("receiver_username"));
                 transactions.add(transaction);
             }
@@ -159,7 +159,7 @@ public class TransactionDAO {
             FROM transactions t
             JOIN users u1 ON t.sender_id = u1.id
             JOIN users u2 ON t.receiver_key = u2.public_key
-            GROUP BY t.id, sender_name, receiver_name, t.amount,  t.status,  t.created_at
+            ORDER BY  t.status,  t.created_at DESC
             """;
 
         try (PreparedStatement stmt = connection.prepareStatement(query);

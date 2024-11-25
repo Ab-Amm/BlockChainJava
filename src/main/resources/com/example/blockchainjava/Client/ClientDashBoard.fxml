@@ -35,7 +35,11 @@
                         </columns>
 
                     </TableView>
+
                 </VBox>
+
+            </Tab>
+            <Tab text="received Transactions History" closable="false">
             </Tab>
         </TabPane>
     </center>
