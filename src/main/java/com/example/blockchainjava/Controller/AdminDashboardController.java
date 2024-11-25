@@ -10,6 +10,8 @@ import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.User.UserRole;
 import com.example.blockchainjava.Model.User.Validator;
 import com.example.blockchainjava.Util.Network.SocketClient;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -55,6 +57,21 @@ public class AdminDashboardController {
     private TextField newBalanceField;
     @FXML
     private ComboBox<Validator> validatorDeleteComboBox;
+    @FXML
+    private TableView<Transaction> transactionTable;
+    @FXML
+    private TableColumn<Transaction, Integer> transactionIdColumn;
+    @FXML
+    private TableColumn<Transaction, String> senderColumn;
+    @FXML
+    private TableColumn<Transaction, String> receiverColumn;
+    @FXML
+    private TableColumn<Transaction, Double> amountColumn;
+    @FXML
+    private TableColumn<Transaction, String> statusColumn;
+    @FXML
+    private TableColumn<Transaction, String> dateColumn;
+
     private Admin admin;
     private UserDAO userDAO;
     private ObservableList<Validator> validatorList;
@@ -147,7 +164,15 @@ public class AdminDashboardController {
 
     @FXML
     public void initialize() {
+        transactionIdColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getId()));
+        senderColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getSenderUsername()));
+        receiverColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getReceiverUsername()));
+        amountColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getAmount()));
+        statusColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getStatus().toString()));
+        dateColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getCreatedAt() != null ? cellData.getValue().getCreatedAt().toString() : ""));
+
         // Configuration du nom de l'administrateur
+        loadTransactionHistory();
         if (admin != null) {
             adminNameLabel.setText(admin.getUsername());
         }
@@ -160,6 +185,28 @@ public class AdminDashboardController {
         setupComboBox(validatorSelectComboBox);
         setupComboBox(validatorDeleteComboBox);
     }
+    private void loadTransactionHistory() {
+        TransactionDAO transactionDAO = new TransactionDAO();
+        ObservableList<Transaction> transactionList = FXCollections.observableArrayList();
+
+        try {
+            // Récupérer toutes les transactions
+            List<Transaction> transactions = transactionDAO.getAllTransactions();
+            System.out.println("Transactions récupérées : " + transactions.size());
+
+            // Ajouter les transactions à la liste observable
+            transactionList.addAll(transactions);
+
+
+            // Affecter les données au tableau
+            transactionTable.setItems(transactionList);
+            transactionTable.refresh();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showErrorMessage("Erreur lors du chargement des transactions.");
+        }
+    }
+
 
     private void setupComboBox(ComboBox<Validator> comboBox) {
         comboBox.setCellFactory(param -> new ListCell<Validator>() {

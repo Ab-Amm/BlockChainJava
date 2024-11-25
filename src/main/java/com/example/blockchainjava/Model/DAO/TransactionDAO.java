@@ -149,28 +149,40 @@ public class TransactionDAO {
     // Récupérer toutes les transactions
     public List<Transaction> getAllTransactions() {
         List<Transaction> transactions = new ArrayList<>();
-        String sql = "SELECT * FROM transactions ORDER BY created_at DESC";
+        String query = """
+            SELECT t.id, 
+                   u1.username AS sender_name, 
+                   u2.username AS receiver_name, 
+                   t.amount, 
+                   t.status, 
+                   t.created_at
+            FROM transactions t
+            JOIN users u1 ON t.sender_id = u1.id
+            JOIN users u2 ON t.receiver_key = u2.public_key
+            GROUP BY t.id, sender_name, receiver_name, t.amount,  t.status,  t.created_at
+            """;
 
-        try (Statement stmt = connection.createStatement()) {
-            ResultSet rs = stmt.executeQuery(sql);
+        try (PreparedStatement stmt = connection.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 Transaction transaction = new Transaction(
                         rs.getInt("id"),
-                        rs.getInt("sender_id"),
-                        rs.getString("receiver_key"),
+                        rs.getString("sender_name"),
+                        rs.getString("receiver_name"),
                         rs.getDouble("amount"),
                         TransactionStatus.valueOf(rs.getString("status")),
-                        rs.getInt("block_id"),
                         rs.getTimestamp("created_at").toLocalDateTime()
                 );
                 transactions.add(transaction);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to load all transactions", e);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
         return transactions;
     }
+
     public Transaction getLatestTransaction(int senderId, String receiverPublicKey, double amount, TransactionStatus status) {
         try {
             String sql = "SELECT * FROM transactions WHERE sender_id = ? AND receiver_key = ? AND amount = ? AND status = ? ORDER BY id DESC LIMIT 1";

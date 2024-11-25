@@ -21,6 +21,11 @@ public class Transaction implements Serializable {
     private LocalDateTime createdAt;
     private String signature; // Ajoute l'attribut signature
     private String receiverUsername;
+    private String senderUsername ;
+
+    public String getSenderUsername(){
+        return senderUsername;
+    }
 
     // Getter et Setter pour receiverUsername
     public String getReceiverUsername() {
@@ -75,6 +80,14 @@ public class Transaction implements Serializable {
         this.amount = amount;
         this.status = status;
         this.blockId = blockId;
+        this.createdAt = createdAt;
+    }
+    public Transaction(int id, String senderUsername, String receiverUsername, Double amount, TransactionStatus status,LocalDateTime createdAt) {
+        this.id = id;
+        this.senderUsername = senderUsername;
+        this.receiverUsername = receiverUsername;
+        this.amount = amount;
+        this.status = status;
         this.createdAt = createdAt;
     }
     public Transaction(int senderId, String receiverKey, Double amount, TransactionStatus status) {

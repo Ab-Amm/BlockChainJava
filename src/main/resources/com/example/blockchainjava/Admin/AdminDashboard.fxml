@@ -56,6 +56,22 @@
                                 style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-font-size: 16;"/>
                     </VBox>
                 </Tab>
+                <Tab text="Transaction History">
+                    <VBox spacing="15" style="-fx-padding: 20;">
+                        <Label text="Historique des Transactions" style="-fx-font-size: 18;"/>
+                        <TableView fx:id="transactionTable" style="-fx-font-size: 14;">
+                            <columns>
+                                <TableColumn fx:id="transactionIdColumn" text="Transaction ID"/>
+                                <TableColumn fx:id="senderColumn" text="Sender"/>
+                                <TableColumn fx:id="receiverColumn" text="Receiver"/>
+                                <TableColumn fx:id="amountColumn" text="Amount"/>
+                                <TableColumn fx:id="statusColumn" text="Status"/>
+                                <TableColumn fx:id="dateColumn" text="Date"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+                </Tab>
+
 
             </TabPane>
 

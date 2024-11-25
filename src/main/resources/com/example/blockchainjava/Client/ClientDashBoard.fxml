@@ -20,7 +20,7 @@
             <Tab text="Send Transaction" closable="false">
                 <fx:include source="TransactionForm.fxml"/>
             </Tab>
-            <Tab text="Transaction History" closable="false">
+            <Tab text="sented Transactions History" closable="false">
                 <VBox spacing="10">
                     <padding>
                         <Insets top="10" right="10" bottom="10" left="10"/>
