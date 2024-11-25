@@ -8,7 +8,6 @@ import com.example.blockchainjava.Util.Network.SocketClient;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import com.example.blockchainjava.Model.User.Session;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
@@ -57,7 +56,7 @@ public class TransactionFormController {
         try {
             System.out.println("=== Start of submitTransaction ===");
 
-            // Retrieve the current user from the session
+
             User currentUser = Session.getCurrentUser();
 
             if (currentUser == null) {
@@ -79,7 +78,6 @@ public class TransactionFormController {
                 throw new IllegalArgumentException("You do not have enough balance to complete this transaction.");
             }
 
-            // Create the transaction
             Transaction transaction = new Transaction(
                     currentUser.getId(),
                     receiverPublicKey,
@@ -114,9 +112,7 @@ public class TransactionFormController {
                             validator.connect();
 
                             System.out.println("Sending transaction to validator...");
-                          //  validator.sendTransaction(transaction);
-                            String transactionJson = new ObjectMapper().writeValueAsString(transaction);
-                            validator.sendData(transactionJson);
+                            validator.sendTransaction(transaction);
 
                             String response = validator.receiveResponse();
                             System.out.println("Validator response: " + response);

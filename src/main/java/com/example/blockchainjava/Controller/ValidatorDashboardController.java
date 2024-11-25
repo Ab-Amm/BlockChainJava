@@ -108,7 +108,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                                 transactionJson = transactionJson.substring("Sending transaction JSON:".length()).trim();
                             }
 
-                            // Create an ObjectMapper instance and register the JavaTimeModule to handle java.time types
                             ObjectMapper objectMapper = new ObjectMapper();
                             objectMapper.registerModule(new JavaTimeModule());  // Register the module
 

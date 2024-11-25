@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+
 public class Transaction implements Serializable {
     private int id;
     private int senderId;
@@ -13,6 +14,7 @@ public class Transaction implements Serializable {
     private Integer blockId; // Nullable
     private LocalDateTime createdAt;
     private String signature; // Ajoute l'attribut signature
+
 
     // Autres attributs, constructeurs, getters et setters
     public Transaction() {}
