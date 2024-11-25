@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.scene.control.Alert;
 import javafx.fxml.FXML;
 import javafx.collections.FXCollections;
@@ -57,6 +59,22 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private TableColumn<Client, String> clientNameColumn;
     @FXML
     private TableColumn<Client, Double> clientBalanceColumn;
+    @FXML
+    private TableColumn<Transaction, Integer> pendingTxIdColumn;
+
+    @FXML
+    private TableColumn<Transaction, Integer> senderColumn;
+
+    @FXML
+    private TableColumn<Transaction, String> receiverColumn;
+
+    @FXML
+    private TableColumn<Transaction, Double> amountColumn;
+
+    @FXML
+    private TableColumn<Transaction, String> timestampTxColumn;
+
+    private ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList();
 
 
     private Validator validator;
@@ -72,10 +90,18 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     @FXML
     public void initialize() {
         try {
+
             id.setCellValueFactory(cellData -> cellData.getValue().getIdProperty().asObject());
             clientNameColumn.setCellValueFactory(cellData -> cellData.getValue().getNameProperty());
             clientBalanceColumn.setCellValueFactory(cellData -> cellData.getValue().getBalanceProperty().asObject());
 
+            pendingTxIdColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().idProperty()));
+            senderColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().senderIdProperty()));
+            receiverColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().receiverKeyProperty()));
+            amountColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().amountProperty()));
+            timestampTxColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().createdAtProperty()));
+
+            pendingTransactionsTable.setItems(pendingTransactionsList);
             if (blockchain == null || validator == null) {
                 System.out.println("Warning: Blockchain and Validator are not initialized.");
                 return;
@@ -115,9 +141,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                                 JsonNode jsonNode = objectMapper.readTree(transactionJson); // Validate JSON
                                 Transaction transaction = objectMapper.treeToValue(jsonNode, Transaction.class);
                                 System.out.println("Received transaction: " + transaction);
-                                //blockchain.addPendingTransaction(transaction); // Add the transaction to the blockchain
-                                Platform.runLater(this::updatePendingTransactionsTable);
-                                Platform.runLater(this::updatePendingTransactionsTable);
+                                Platform.runLater(() -> addTransactionToPendingTable(transaction));
                             } catch (JsonProcessingException e) {
                                 Platform.runLater(() -> showError("Transaction Error", "Failed to parse transaction: " + e.getMessage()));
                             }
@@ -145,8 +169,17 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
 
+    private void updatePendingTransactionsTable() {
+        pendingTransactionsTable.setItems(pendingTransactionsList); // Associe les données actualisées à la table
+    }
 
-
+    private void addTransactionToPendingTable(Transaction transaction) {
+        if (transaction != null) {
+            pendingTransactionsList.add(transaction); // Ajoute la transaction à la liste Observable
+            System.out.println("Transaction added to pending list: " + transaction);
+            updatePendingTransactionsTable(); // Met à jour la table après l'ajout
+        }
+    }
 
     @Override
     public void onBlockchainUpdate(BlockChain updatedBlockchain) {
@@ -273,12 +306,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
-    }
-    private void updatePendingTransactionsTable() {
-        if (blockchain != null) {
-            ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList(blockchain.getPendingTransactions());
-            pendingTransactionsTable.setItems(pendingTransactionsList);
-        }
     }
 
 

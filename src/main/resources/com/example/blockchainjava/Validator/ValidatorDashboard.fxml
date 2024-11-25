@@ -39,11 +39,11 @@
                     <Label text="Pending Transactions" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
                     <TableView fx:id="pendingTransactionsTable" VBox.vgrow="ALWAYS">
                         <columns>
-                            <TableColumn fx:id="pendingTxIdColumn" text="Transaction ID"/>
-                            <TableColumn fx:id="senderColumn" text="Sender"/>
-                            <TableColumn fx:id="receiverColumn" text="Receiver"/>
-                            <TableColumn fx:id="amountColumn" text="Amount"/>
-                            <TableColumn fx:id="timestampTxColumn" text="Timestamp"/>
+                            <TableColumn fx:id="pendingTxIdColumn" text="Transaction ID" prefWidth="100"/>
+                            <TableColumn fx:id="senderColumn" text="Sender" prefWidth="100"/>
+                            <TableColumn fx:id="receiverColumn" text="Receiver" prefWidth="350"/> <!-- Augmente la largeur -->
+                            <TableColumn fx:id="amountColumn" text="Amount" prefWidth="100"/>
+                            <TableColumn fx:id="timestampTxColumn" text="Timestamp" prefWidth="150"/>
                         </columns>
                     </TableView>
                     <HBox spacing="10" style="-fx-padding: 10;">
