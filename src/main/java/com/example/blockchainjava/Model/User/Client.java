@@ -22,6 +22,11 @@ public class Client extends User {
         this.balance = balance;
         this.transactions = new ArrayList<>();
     }
+
+    public boolean hasSufficientBalance(Transaction transaction) {
+        return this.getBalance() >= transaction.getAmount();
+    }
+
     public IntegerProperty getIdProperty() {
         return new SimpleIntegerProperty(id);  // Retourne une IntegerProperty
     }

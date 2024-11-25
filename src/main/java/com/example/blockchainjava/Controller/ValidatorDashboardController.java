@@ -10,10 +10,10 @@ import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 
+import com.example.blockchainjava.Util.Security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -30,7 +30,7 @@ import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
-import java.sql.SQLException;
+import java.security.PublicKey;
 import java.util.List;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -181,6 +181,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
 
+
     @Override
     public void onBlockchainUpdate(BlockChain updatedBlockchain) {
         this.blockchain = updatedBlockchain;
@@ -223,17 +224,57 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
 
-
-
-
-    @FXML
     private void validateTransaction() {
         Transaction selectedTransaction = pendingTransactionsTable.getSelectionModel().getSelectedItem();
-        if (selectedTransaction != null && blockchain != null && validator != null) {
+
+        if (selectedTransaction != null && blockchain != null) {
             try {
+                System.out.println("=== Start of validateTransaction ===");
+                System.out.println("Validating transaction: " + selectedTransaction);
+
+                // Fetch the sender's public key
+                String senderPublicKeyStr = getSenderPublicKey(String.valueOf(selectedTransaction.getSenderId()));
+                if (senderPublicKeyStr == null) {
+                    throw new IllegalArgumentException("Sender's public key not found.");
+                }
+                PublicKey senderPublicKey = SecurityUtils.decodePublicKey(senderPublicKeyStr);
+
+                System.out.println("Sender's public key decoded successfully.");
+
+                // Verify the transaction signature
+                boolean isSignatureValid = SecurityUtils.verifySignature(
+                        selectedTransaction.getDataToSign(), // Data to verify
+                        selectedTransaction.getSignature(), // Signature to verify
+                        senderPublicKey                  // Sender's public key
+                );
+
+                if (!isSignatureValid) {
+                    throw new SecurityException("Invalid signature for the transaction.");
+                }
+
+                System.out.println("Signature is valid.");
+
+                // Verify the sender's balance
+                User sender = getUserById(selectedTransaction.senderIdProperty());
+                if (sender == null) {
+                    throw new IllegalArgumentException("Sender not found.");
+                }
+
+                if (sender.getBalance() < selectedTransaction.getAmount()) {
+                    throw new IllegalArgumentException("Insufficient balance for the transaction.");
+                }
+
+                System.out.println("Balance check passed.");
+
+                // Add the transaction to the blockchain
                 String signature = validator.sign(selectedTransaction);
                 blockchain.addBlock(selectedTransaction, signature);
+
+                // Update the blockchain view
                 updateBlockchainView();
+
+                System.out.println("Transaction successfully added to blockchain.");
+                System.out.println("=== End of validateTransaction ===");
             } catch (Exception e) {
                 showError("Validation Error", "Failed to validate transaction: " + e.getMessage());
             }
@@ -241,6 +282,18 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             showError("Validation Error", "No transaction selected or components not initialized.");
         }
     }
+
+    private String getSenderPublicKey(String senderId) {
+        // Retrieve the sender's public key from the user database
+        User sender = getUserById(Integer.valueOf(senderId));
+        return sender != null ? sender.getPublicKey() : null;
+    }
+    private User getUserById(Integer userId) {
+        return userDAO.getUserById(userId); // Adjust this based on your actual DAO implementation
+    }
+
+
+
 
     @FXML
     private void updateClientBalance() {

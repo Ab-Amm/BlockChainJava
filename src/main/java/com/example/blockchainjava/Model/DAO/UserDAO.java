@@ -138,6 +138,34 @@ public class UserDAO {
         }
         return null;
     }
+    public User getUserById(Integer id) {
+        String sql = "SELECT * FROM users WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, id); // Set the ID parameter
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                // Retrieve the role to determine the user type
+                UserRole role = UserRole.valueOf(rs.getString("role"));
+                // Create the user object based on the role
+                User user = createUserFromResultSet(rs, role);
+                user.setId(id); // Set the user ID
+                user.setBalance(rs.getDouble("balance")); // Set the user's balance
+                user.setPublicKey(rs.getString("public_key"));
+                user.setPrivateKey(EncryptionUtil.decrypt(rs.getString("private_key")));
+                return user; // Return the constructed User object
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load user with ID: " + id, e);
+        } catch (IllegalStateException e) {
+            throw new RuntimeException("Unknown role for user with ID: " + id, e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return null; // Return null if no user was found
+    }
+
 
     private User createUserFromResultSet(ResultSet rs, UserRole role) throws Exception {
         User user = switch (role) {
