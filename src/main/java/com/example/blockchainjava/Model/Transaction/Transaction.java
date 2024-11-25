@@ -20,6 +20,16 @@ public class Transaction implements Serializable {
     private Integer blockId; // Nullable
     private LocalDateTime createdAt;
     private String signature; // Ajoute l'attribut signature
+    private String receiverUsername;
+
+    // Getter et Setter pour receiverUsername
+    public String getReceiverUsername() {
+        return receiverUsername;
+    }
+
+    public void setReceiverUsername(String receiverUsername) {
+        this.receiverUsername = receiverUsername;
+    }
 
     public Integer idProperty() {
         return id;

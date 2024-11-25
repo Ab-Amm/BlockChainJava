@@ -223,7 +223,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             showError("User Update Error", "Failed to load clients: " + e.getMessage());
         }
     }
-
+    @FXML
     private void validateTransaction() {
         Transaction selectedTransaction = pendingTransactionsTable.getSelectionModel().getSelectedItem();
 

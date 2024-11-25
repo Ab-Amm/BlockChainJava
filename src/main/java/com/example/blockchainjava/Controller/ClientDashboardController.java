@@ -3,6 +3,7 @@ package com.example.blockchainjava.Controller;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.DAO.TransactionDAO; // Classe pour récupérer les transactions depuis la base de données.
 import com.example.blockchainjava.Model.User.Client;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -38,6 +39,9 @@ public class ClientDashboardController {
 
     @FXML
     private TableColumn<Transaction, String> dateColumn;
+    @FXML
+    private TableColumn<Transaction, String> receiverColumn;
+
 
     private TransactionDAO transactionDAO; // Classe DAO pour accéder aux transactions
     private ObservableList<Transaction> transactionsList;
@@ -50,9 +54,10 @@ public class ClientDashboardController {
     }
     @FXML
     public void initialize() {
+        receiverColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getReceiverUsername()));
         // Associer les colonnes aux propriétés du modèle Transaction
         transactionIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getId()).asObject());
-        senderReceiverColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(String.valueOf(cellData.getValue().getSenderId())));
+        //senderReceiverColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(String.valueOf(cellData.getValue().getSenderId())));
         amountColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getAmount()).asObject());
         statusColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getStatus().toString()));
         dateColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(
