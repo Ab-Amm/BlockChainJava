@@ -1,5 +1,4 @@
 package com.example.blockchainjava.Util.Network;
-
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -29,7 +28,7 @@ public class SocketClient {
     public void sendTransaction(Transaction transaction) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         String transactionJson = objectMapper.writeValueAsString(transaction);
 
