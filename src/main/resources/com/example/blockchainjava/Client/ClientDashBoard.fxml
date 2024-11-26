@@ -20,7 +20,7 @@
             <Tab text="Send Transaction" closable="false">
                 <fx:include source="TransactionForm.fxml"/>
             </Tab>
-            <Tab text="Transaction History" closable="false">
+            <Tab text="sented Transactions History" closable="false">
                 <VBox spacing="10">
                     <padding>
                         <Insets top="10" right="10" bottom="10" left="10"/>
@@ -28,14 +28,18 @@
                     <TableView fx:id="transactionTable" VBox.vgrow="ALWAYS" prefHeight="400">
                         <columns>
                             <TableColumn fx:id="transactionIdColumn" text="ID" prefWidth="40"/>
-                            <TableColumn fx:id="senderReceiverColumn" text="Sender/Receiver Key" prefWidth="350"/>
+                            <TableColumn fx:id="receiverColumn" text="Receiver Username" prefWidth="350"/>
                             <TableColumn fx:id="amountColumn" text="Amount" prefWidth="130"/>
                             <TableColumn fx:id="statusColumn" text="Status" prefWidth="130"/>
                             <TableColumn fx:id="dateColumn" text="Date" prefWidth="130"/>
                         </columns>
 
                     </TableView>
+
                 </VBox>
+
+            </Tab>
+            <Tab text="received Transactions History" closable="false">
             </Tab>
         </TabPane>
     </center>

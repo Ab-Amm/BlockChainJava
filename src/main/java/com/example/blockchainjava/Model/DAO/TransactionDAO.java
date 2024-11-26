@@ -17,11 +17,18 @@ public class TransactionDAO {
     // Récupérer les transactions associées à un client spécifique
     public List<Transaction> getTransactionsByClient(int clientId) {
         List<Transaction> transactions = new ArrayList<>();
-        String sql = "SELECT * FROM transactions WHERE sender_id = ? OR receiver_key = ? ORDER BY created_at DESC";
+        String sql = """
+        SELECT t.id, t.sender_id, t.receiver_key, t.amount, t.status, t.block_id, 
+               t.created_at, u.username AS receiver_username
+        FROM transactions t
+        LEFT JOIN users u ON t.receiver_key = u.public_key
+        WHERE t.sender_id = ? OR t.receiver_key = ?
+        ORDER BY t.created_at DESC
+    """;
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, clientId);
-            stmt.setString(2, String.valueOf(clientId)); // Si la clé publique est basée sur l'ID du client, sinon modifiez selon le format attendu
+            stmt.setString(2, String.valueOf(clientId)); // Si nécessaire, modifiez le format attendu pour receiver_key
 
             ResultSet rs = stmt.executeQuery();
 
@@ -35,6 +42,9 @@ public class TransactionDAO {
                         rs.getObject("block_id", Integer.class), // Nullable block_id
                         rs.getTimestamp("created_at").toLocalDateTime()
                 );
+
+                // Ajoutez le receiver_username en tant qu'attribut temporaire ou dans la logique de votre classe Transaction
+                transaction.setReceiverUsername(rs.getString("receiver_username"));
                 transactions.add(transaction);
             }
         } catch (SQLException e) {
@@ -42,6 +52,7 @@ public class TransactionDAO {
         }
         return transactions;
     }
+
 
 
     // Sauvegarder une transaction
@@ -120,7 +131,7 @@ public class TransactionDAO {
     }
 
     // Mettre à jour le statut d'une transaction
-    public void updateTransactionStatus(int transactionId, TransactionStatus status) {
+    /*public void updateTransactionStatus(int transactionId, TransactionStatus status) {
         String sql = "UPDATE transactions SET status = ? WHERE id = ?";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -128,36 +139,50 @@ public class TransactionDAO {
             stmt.setInt(2, transactionId);
 
             stmt.executeUpdate();
+            System.out.println("l'id dde transaction : "+transaction.getId());
+            return transaction.getId();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to update transaction status", e);
         }
-    }
+    }*/
 
     // Récupérer toutes les transactions
     public List<Transaction> getAllTransactions() {
         List<Transaction> transactions = new ArrayList<>();
-        String sql = "SELECT * FROM transactions ORDER BY created_at DESC";
+        String query = """
+            SELECT t.id, 
+                   u1.username AS sender_name, 
+                   u2.username AS receiver_name, 
+                   t.amount, 
+                   t.status, 
+                   t.created_at
+            FROM transactions t
+            JOIN users u1 ON t.sender_id = u1.id
+            JOIN users u2 ON t.receiver_key = u2.public_key
+            ORDER BY  t.status,  t.created_at DESC
+            """;
 
-        try (Statement stmt = connection.createStatement()) {
-            ResultSet rs = stmt.executeQuery(sql);
+        try (PreparedStatement stmt = connection.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 Transaction transaction = new Transaction(
                         rs.getInt("id"),
-                        rs.getInt("sender_id"),
-                        rs.getString("receiver_key"),
+                        rs.getString("sender_name"),
+                        rs.getString("receiver_name"),
                         rs.getDouble("amount"),
                         TransactionStatus.valueOf(rs.getString("status")),
-                        rs.getInt("block_id"),
                         rs.getTimestamp("created_at").toLocalDateTime()
                 );
                 transactions.add(transaction);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to load all transactions", e);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
         return transactions;
     }
+
     public Transaction getLatestTransaction(int senderId, String receiverPublicKey, double amount, TransactionStatus status) {
         try {
             String sql = "SELECT * FROM transactions WHERE sender_id = ? AND receiver_key = ? AND amount = ? AND status = ? ORDER BY id DESC LIMIT 1";
