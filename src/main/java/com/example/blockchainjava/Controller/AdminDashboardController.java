@@ -165,7 +165,7 @@ public class AdminDashboardController {
     @FXML
     public void initialize() {
         transactionIdColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getId()));
-        senderColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getSenderUsername()));
+//        senderColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getSenderUsername()));
         receiverColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getReceiverUsername()));
         amountColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getAmount()));
         statusColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getStatus().toString()));

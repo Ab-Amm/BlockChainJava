@@ -273,6 +273,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 String signature = validator.sign(selectedTransaction);
                 blockchain.addBlock(selectedTransaction, signature);
 
+                System.out.println("Transaction added to blockchain.");
+
                 // Update the blockchain view
                 updateBlockchainView();
 
@@ -280,6 +282,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 System.out.println("=== End of validateTransaction ===");
             } catch (Exception e) {
                 showError("Validation Error", "Failed to validate transaction: " + e.getMessage());
+                e.printStackTrace(); // Affiche la pile complète de l'exception dans la console
+                System.err.println("Error details: " + e.getMessage());
             }
         } else {
             showError("Validation Error", "No transaction selected or components not initialized.");

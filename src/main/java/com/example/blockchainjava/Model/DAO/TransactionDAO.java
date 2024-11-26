@@ -151,8 +151,6 @@ public class TransactionDAO {
         List<Transaction> transactions = new ArrayList<>();
         String query = """
             SELECT t.id, 
-                   u1.username AS sender_name, 
-                   u2.username AS receiver_name, 
                    t.amount, 
                    t.status, 
                    t.created_at
@@ -168,8 +166,6 @@ public class TransactionDAO {
             while (rs.next()) {
                 Transaction transaction = new Transaction(
                         rs.getInt("id"),
-                        rs.getString("sender_name"),
-                        rs.getString("receiver_name"),
                         rs.getDouble("amount"),
                         TransactionStatus.valueOf(rs.getString("status")),
                         rs.getTimestamp("created_at").toLocalDateTime()

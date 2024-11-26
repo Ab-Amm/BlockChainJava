@@ -1,5 +1,7 @@
 package com.example.blockchainjava.Model.Transaction;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -14,11 +16,13 @@ public class Transaction implements Serializable {
     private LocalDateTime createdAt;
     private String signature; // Ajoute l'attribut signature
     private String receiverUsername;
-    private String senderUsername ;
+//    private String senderUsername ;
+    @JsonIgnore // Ignore this field during deserialization
+    private String dataToSign;
 
-    public String getSenderUsername(){
-        return senderUsername;
-    }
+//    public String getSenderUsername(){
+//        return senderUsername;
+//    }
 
     // Getter et Setter pour receiverUsername
     public String getReceiverUsername() {
@@ -75,10 +79,10 @@ public class Transaction implements Serializable {
         this.blockId = blockId;
         this.createdAt = createdAt;
     }
-    public Transaction(int id, String senderUsername, String receiverUsername, Double amount, TransactionStatus status,LocalDateTime createdAt) {
+    public Transaction(int id, Double amount, TransactionStatus status,LocalDateTime createdAt) {
         this.id = id;
-        this.senderUsername = senderUsername;
-        this.receiverUsername = receiverUsername;
+//        this.senderUsername = senderUsername;
+//        this.receiverUsername = receiverUsername;
         this.amount = amount;
         this.status = status;
         this.createdAt = createdAt;
@@ -173,6 +177,7 @@ public class Transaction implements Serializable {
                 ", status=" + status +
                 ", blockId=" + blockId +
                 ", createdAt=" + createdAt +
+                ", signature='" + signature + '\'' +
                 '}';
     }
 }
