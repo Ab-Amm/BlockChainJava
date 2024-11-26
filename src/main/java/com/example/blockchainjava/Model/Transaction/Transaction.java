@@ -139,9 +139,13 @@ public class Transaction implements Serializable {
         this.createdAt = createdAt;
     }
 
-    public String getDataToSign() {
+    public static String generateDataToSign(String senderId, String receiverKey, double amount) {
         return senderId + receiverKey + amount;
     }
+    public String getDataToSign() {
+        return Transaction.generateDataToSign(String.valueOf(senderId), receiverKey, amount);
+    }
+
 
     @Override
     public String toString() {

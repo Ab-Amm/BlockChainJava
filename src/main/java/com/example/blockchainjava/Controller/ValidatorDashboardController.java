@@ -224,6 +224,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
 
+    @FXML
     private void validateTransaction() {
         Transaction selectedTransaction = pendingTransactionsTable.getSelectionModel().getSelectedItem();
 
