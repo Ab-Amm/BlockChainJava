@@ -136,7 +136,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                             }
 
                             ObjectMapper objectMapper = new ObjectMapper();
-                            objectMapper.registerModule(new JavaTimeModule());  // Register the module
+                            objectMapper.registerModule(new JavaTimeModule());
+                            objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);// Register the module
 
                             try {
                                 JsonNode jsonNode = objectMapper.readTree(transactionJson); // Validate JSON
