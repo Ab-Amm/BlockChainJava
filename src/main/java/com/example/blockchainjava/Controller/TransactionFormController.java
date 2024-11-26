@@ -42,7 +42,7 @@ public class TransactionFormController {
         try {
             // Créer les données à signer (par exemple, l'ID de l'expéditeur et le montant)
             String dataToSign = Transaction.generateDataToSign(
-                    String.valueOf(transaction.getSenderId()), transaction.getReceiverKey(), transaction.getAmount()
+                    transaction.getSenderId(), transaction.getReceiverKey(), transaction.getAmount()
             );
             // Signer les données avec la clé privée
             return SecurityUtils.signData(dataToSign, privateKey); // Utiliser la méthode signData avec la clé privée décodée
@@ -51,7 +51,6 @@ public class TransactionFormController {
         }
     }
 
-    // Method to handle form submission
     // Method to handle form submission
     public void submitTransaction() {
         try {

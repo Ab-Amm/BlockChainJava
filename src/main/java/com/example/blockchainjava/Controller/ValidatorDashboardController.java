@@ -9,7 +9,7 @@ import com.example.blockchainjava.Model.User.Validator;
 import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Model.DAO.UserDAO;
-
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.example.blockchainjava.Util.Security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,11 +24,12 @@ import javafx.collections.ObservableList;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-
+import java.sql.SQLException;
 import java.io.*;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.List;
@@ -127,7 +128,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 Socket clientSocket = serverSocket.accept();
 
                 new Thread(() -> {
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"))) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8))) {
                         String transactionJson = reader.readLine();
                         if (transactionJson != null && !transactionJson.trim().isEmpty()) {
                             if (transactionJson.startsWith("Sending transaction JSON:")) {
@@ -285,7 +286,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
     private String getSenderPublicKey(String senderId) {
-        // Retrieve the sender's public key from the user database
+        // Retrieve the sender's public keyof from the user database
         User sender = getUserById(Integer.valueOf(senderId));
         return sender != null ? sender.getPublicKey() : null;
     }

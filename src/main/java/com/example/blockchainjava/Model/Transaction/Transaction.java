@@ -1,13 +1,6 @@
 package com.example.blockchainjava.Model.Transaction;
 
-import com.mysql.cj.conf.StringProperty;
-import eu.hansolo.toolbox.properties.DoubleProperty;
-import eu.hansolo.toolbox.properties.IntegerProperty;
-import eu.hansolo.toolbox.properties.ObjectProperty;
-
 import java.io.Serializable;
-import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 
@@ -162,11 +155,11 @@ public class Transaction implements Serializable {
         this.createdAt = createdAt;
     }
 
-    public static String generateDataToSign(String senderId, String receiverKey, double amount) {
+    public static String generateDataToSign(Integer senderId, String receiverKey, double amount) {
         return senderId + receiverKey + amount;
     }
     public String getDataToSign() {
-        return Transaction.generateDataToSign(String.valueOf(senderId), receiverKey, amount);
+        return Transaction.generateDataToSign(senderId, receiverKey, amount);
     }
 
 

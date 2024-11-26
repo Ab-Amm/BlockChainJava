@@ -31,7 +31,7 @@ public class SocketClient {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         String transactionJson = objectMapper.writeValueAsString(transaction);
-
+        System.out.println("Transaction JSON (function socketclient): " + transactionJson);
         try (OutputStream outputStream = socket.getOutputStream();
              BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8))) {
             writer.write(transactionJson);
