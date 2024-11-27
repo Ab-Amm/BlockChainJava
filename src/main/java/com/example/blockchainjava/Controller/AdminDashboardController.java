@@ -24,8 +24,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
-
-import com.example.blockchainjava.Model.DAO.DatabaseConnection;
+import java.util.Map;
 
 public class AdminDashboardController {
 
@@ -58,19 +57,20 @@ public class AdminDashboardController {
     @FXML
     private ComboBox<Validator> validatorDeleteComboBox;
     @FXML
-    private TableView<Transaction> transactionTable;
+    private TableView<Map<String, Object>> transactionTable;
     @FXML
-    private TableColumn<Transaction, Integer> transactionIdColumn;
+    private TableColumn<Map<String, Object>, Integer> transactionIdColumn; // "id" est un entier
     @FXML
-    private TableColumn<Transaction, String> senderColumn;
+    private TableColumn<Map<String, Object>, String> senderColumn; // "senderName" est une chaîne
     @FXML
-    private TableColumn<Transaction, String> receiverColumn;
+    private TableColumn<Map<String, Object>, String> receiverColumn; // "receiverName" est une chaîne
     @FXML
-    private TableColumn<Transaction, Double> amountColumn;
+    private TableColumn<Map<String, Object>, Double> amountColumn; // "amount" est un double
     @FXML
-    private TableColumn<Transaction, String> statusColumn;
+    private TableColumn<Map<String, Object>, String> statusColumn; // "status" est une chaîne
     @FXML
-    private TableColumn<Transaction, String> dateColumn;
+    private TableColumn<Map<String, Object>, String> dateColumn; // "createdAt" est une chaîne (convertie depuis LocalDateTime)
+
 
     private Admin admin;
     private UserDAO userDAO;
@@ -164,12 +164,18 @@ public class AdminDashboardController {
 
     @FXML
     public void initialize() {
-        transactionIdColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getId()));
-//        senderColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getSenderUsername()));
-        receiverColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getReceiverUsername()));
-        amountColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getAmount()));
-        statusColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getStatus().toString()));
-        dateColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getCreatedAt() != null ? cellData.getValue().getCreatedAt().toString() : ""));
+        transactionIdColumn.setCellValueFactory(cellData ->
+                new SimpleObjectProperty<>((Integer) cellData.getValue().get("id")));
+        senderColumn.setCellValueFactory(cellData ->
+                new SimpleStringProperty((String) cellData.getValue().get("senderName")));
+        receiverColumn.setCellValueFactory(cellData ->
+                new SimpleStringProperty((String) cellData.getValue().get("receiverName")));
+        amountColumn.setCellValueFactory(cellData ->
+                new SimpleObjectProperty<>((Double) cellData.getValue().get("amount")));
+        statusColumn.setCellValueFactory(cellData ->
+                new SimpleStringProperty(cellData.getValue().get("status").toString()));
+        dateColumn.setCellValueFactory(cellData ->
+                new SimpleStringProperty(cellData.getValue().get("createdAt").toString()));
 
         // Configuration du nom de l'administrateur
         loadTransactionHistory();
@@ -185,18 +191,18 @@ public class AdminDashboardController {
         setupComboBox(validatorSelectComboBox);
         setupComboBox(validatorDeleteComboBox);
     }
+
     private void loadTransactionHistory() {
         TransactionDAO transactionDAO = new TransactionDAO();
-        ObservableList<Transaction> transactionList = FXCollections.observableArrayList();
+
 
         try {
-            // Récupérer toutes les transactions
-            List<Transaction> transactions = transactionDAO.getAllTransactions();
+            // Récupérer toutes les transactions avec les noms des expéditeurs et destinataires
+            List<Map<String, Object>> transactions = transactionDAO.getAllTransactions();
             System.out.println("Transactions récupérées : " + transactions.size());
 
             // Ajouter les transactions à la liste observable
-            transactionList.addAll(transactions);
-
+            ObservableList<Map<String, Object>> transactionList = FXCollections.observableArrayList(transactions);
 
             // Affecter les données au tableau
             transactionTable.setItems(transactionList);
@@ -206,6 +212,7 @@ public class AdminDashboardController {
             showErrorMessage("Erreur lors du chargement des transactions.");
         }
     }
+
 
 
     private void setupComboBox(ComboBox<Validator> comboBox) {

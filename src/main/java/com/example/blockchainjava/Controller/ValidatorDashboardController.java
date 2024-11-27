@@ -9,7 +9,7 @@ import com.example.blockchainjava.Model.User.Validator;
 import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Model.DAO.UserDAO;
-import com.fasterxml.jackson.databind.SerializationFeature;
+
 import com.example.blockchainjava.Util.Security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,12 +24,11 @@ import javafx.collections.ObservableList;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import java.sql.SQLException;
+
 import java.io.*;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.List;
@@ -128,7 +127,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 Socket clientSocket = serverSocket.accept();
 
                 new Thread(() -> {
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8))) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"))) {
                         String transactionJson = reader.readLine();
                         if (transactionJson != null && !transactionJson.trim().isEmpty()) {
                             if (transactionJson.startsWith("Sending transaction JSON:")) {
@@ -136,8 +135,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                             }
 
                             ObjectMapper objectMapper = new ObjectMapper();
-                            objectMapper.registerModule(new JavaTimeModule());
-                            objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);// Register the module
+                            objectMapper.registerModule(new JavaTimeModule());  // Register the module
 
                             try {
                                 JsonNode jsonNode = objectMapper.readTree(transactionJson); // Validate JSON
@@ -273,8 +271,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 String signature = validator.sign(selectedTransaction);
                 blockchain.addBlock(selectedTransaction, signature);
 
-                System.out.println("Transaction added to blockchain.");
-
                 // Update the blockchain view
                 updateBlockchainView();
 
@@ -282,8 +278,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 System.out.println("=== End of validateTransaction ===");
             } catch (Exception e) {
                 showError("Validation Error", "Failed to validate transaction: " + e.getMessage());
-                e.printStackTrace(); // Affiche la pile complète de l'exception dans la console
-                System.err.println("Error details: " + e.getMessage());
             }
         } else {
             showError("Validation Error", "No transaction selected or components not initialized.");
@@ -291,7 +285,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
     private String getSenderPublicKey(String senderId) {
-        // Retrieve the sender's public keyof from the user database
+        // Retrieve the sender's public key from the user database
         User sender = getUserById(Integer.valueOf(senderId));
         return sender != null ? sender.getPublicKey() : null;
     }

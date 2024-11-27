@@ -16,7 +16,7 @@ public class Transaction implements Serializable {
     private LocalDateTime createdAt;
     private String signature; // Ajoute l'attribut signature
     private String receiverUsername;
-//    private String senderUsername ;
+    //    private String senderUsername ;
     @JsonIgnore // Ignore this field during deserialization
     private String dataToSign;
 
@@ -101,7 +101,7 @@ public class Transaction implements Serializable {
         this.status = status;
         this.signature=signature;
     }
-    
+
     // Getters et setters
     public int getId() {
         return id;

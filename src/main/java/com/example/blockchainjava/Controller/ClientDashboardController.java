@@ -12,7 +12,9 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ClientDashboardController {
 
@@ -42,7 +44,7 @@ public class ClientDashboardController {
     @FXML
     private TableColumn<Transaction, String> receiverColumn;
 
-
+    private Map<Integer, String> receiverUsernameMap = new HashMap<>();
     private TransactionDAO transactionDAO; // Classe DAO pour accéder aux transactions
     private ObservableList<Transaction> transactionsList;
 
@@ -54,7 +56,17 @@ public class ClientDashboardController {
     }
     @FXML
     public void initialize() {
-        receiverColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getReceiverUsername()));
+        receiverColumn.setCellValueFactory(cellData -> {
+            Transaction transaction = cellData.getValue();
+
+            // Obtenir les données supplémentaires dans la liste observable
+            String receiverUsername = getReceiverUsernameFromTransaction(transaction);
+
+            // Retourner une propriété observable
+            return new SimpleStringProperty(receiverUsername != null ? receiverUsername : "N/A");
+        });
+
+
         // Associer les colonnes aux propriétés du modèle Transaction
         transactionIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getId()).asObject());
         //senderReceiverColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(String.valueOf(cellData.getValue().getSenderId())));
@@ -97,6 +109,12 @@ public class ClientDashboardController {
     /**
      * Charge l'historique des transactions du client actuel.
      */
+
+    private String getReceiverUsernameFromTransaction(Transaction transaction) {
+        return receiverUsernameMap.getOrDefault(transaction.getId(), "N/A");
+    }
+
+
     private void loadTransactionHistory() {
         if (client == null) {
             transactionsList.clear();
@@ -106,7 +124,14 @@ public class ClientDashboardController {
 
         try {
             // Récupérer les transactions du client depuis la base de données
-            List<Transaction> transactions = transactionDAO.getTransactionsByClient(client.getId()); // Remplacez par la méthode appropriée pour obtenir l'ID
+            List<Transaction> transactions = transactionDAO.getTransactionsByClient(client.getId());
+
+            // Construire un map pour stocker les receiver_username
+            for (Transaction transaction : transactions) {
+                int transactionId = transaction.getId();
+                String receiverUsername = transactionDAO.getReceiverUsername(transactionId);
+                receiverUsernameMap.put(transactionId, receiverUsername);
+            }
 
             // Ajouter les transactions à la liste observable
             transactionsList.setAll(transactions);
@@ -117,5 +142,6 @@ public class ClientDashboardController {
             System.err.println("Error loading transaction history: " + e.getMessage());
         }
     }
+
 
 }

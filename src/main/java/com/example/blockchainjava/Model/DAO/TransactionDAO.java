@@ -6,15 +6,41 @@ import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TransactionDAO {
     private final Connection connection;
+    private Map<Integer, String> receiverUsernameMap = new HashMap<>();
+
 
     public TransactionDAO() {
         this.connection = DatabaseConnection.getConnection();
     }
-    // Récupérer les transactions associées à un client spécifique
+    public String getReceiverUsername(int transactionId) {
+        String receiverUsername = null;
+        String sql = """
+        SELECT u.username AS receiver_username
+        FROM transactions t
+        LEFT JOIN users u ON t.receiver_key = u.public_key
+        WHERE t.id = ?
+    """;
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, transactionId);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                receiverUsername = rs.getString("receiver_username");
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to fetch receiver username for transaction ID: " + transactionId);
+        }
+
+        return receiverUsername;
+    }
+
     public List<Transaction> getTransactionsByClient(int clientId) {
         List<Transaction> transactions = new ArrayList<>();
         String sql = """
@@ -28,11 +54,12 @@ public class TransactionDAO {
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, clientId);
-            stmt.setString(2, String.valueOf(clientId)); // Si nécessaire, modifiez le format attendu pour receiver_key
+            stmt.setString(2, String.valueOf(clientId)); // Si nécessaire, ajustez le format pour receiver_key
 
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
+                // Créer une instance de Transaction avec les données principales
                 Transaction transaction = new Transaction(
                         rs.getInt("id"),
                         rs.getInt("sender_id"),
@@ -43,15 +70,20 @@ public class TransactionDAO {
                         rs.getTimestamp("created_at").toLocalDateTime()
                 );
 
-                // Ajoutez le receiver_username en tant qu'attribut temporaire ou dans la logique de votre classe Transaction
-                transaction.setReceiverUsername(rs.getString("receiver_username"));
+                // Stocker le `receiver_username` dans une Map côté contrôleur (sans l'ajouter à la classe Transaction)
+                String receiverUsername = rs.getString("receiver_username");
+                receiverUsernameMap.put(transaction.getId(), receiverUsername);
+
                 transactions.add(transaction);
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to load transactions for client: " + clientId, e);
         }
+
         return transactions;
     }
+
+
 
 
 
@@ -147,34 +179,39 @@ public class TransactionDAO {
     }*/
 
     // Récupérer toutes les transactions
-    public List<Transaction> getAllTransactions() {
-        List<Transaction> transactions = new ArrayList<>();
+    public List<Map<String, Object>> getAllTransactions() {
+        List<Map<String, Object>> transactions = new ArrayList<>();
         String query = """
-            SELECT t.id, 
-                   t.amount, 
-                   t.status, 
-                   t.created_at
-            FROM transactions t
-            JOIN users u1 ON t.sender_id = u1.id
-            JOIN users u2 ON t.receiver_key = u2.public_key
-            ORDER BY  t.status,  t.created_at DESC
-            """;
+    SELECT t.id, 
+           t.amount, 
+           t.status, 
+           t.created_at,
+           u1.username AS sender_name,
+           u2.username AS receiver_name
+    FROM transactions t
+    JOIN users u1 ON t.sender_id = u1.id
+    JOIN users u2 ON t.receiver_key = u2.public_key
+    ORDER BY t.status, t.created_at DESC
+    """;
 
         try (PreparedStatement stmt = connection.prepareStatement(query);
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                Transaction transaction = new Transaction(
-                        rs.getInt("id"),
-                        rs.getDouble("amount"),
-                        TransactionStatus.valueOf(rs.getString("status")),
-                        rs.getTimestamp("created_at").toLocalDateTime()
-                );
-                transactions.add(transaction);
+                Map<String, Object> transactionData = new HashMap<>();
+                transactionData.put("id", rs.getInt("id"));
+                transactionData.put("amount", rs.getDouble("amount"));
+                transactionData.put("status", rs.getString("status"));
+                transactionData.put("createdAt", rs.getTimestamp("created_at").toLocalDateTime());
+                transactionData.put("senderName", rs.getString("sender_name"));
+                transactionData.put("receiverName", rs.getString("receiver_name"));
+
+                transactions.add(transactionData);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+
 
         return transactions;
     }
