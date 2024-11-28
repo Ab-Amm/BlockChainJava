@@ -296,6 +296,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 //        }
 //    }
                 // 4. Vérifiez si tous les validateurs ont validé la transaction
+                addValidatorVoteForTransaction(selectedTransaction);
                 if (isTransactionValidatedByAllValidators(selectedTransaction)) {
                     // Si tous les validateurs ont validé, ajoutez la transaction à la blockchain
                     String signature = validator.sign(selectedTransaction);
@@ -315,14 +316,12 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
     private boolean isTransactionValidatedByAllValidators(Transaction transaction) {
-        // Récupère la liste de tous les validateurs (ou d'une manière de déterminer cela)
-        List<Validator> allValidators = getAllValidators();
 
         // Récupère la liste des validateurs ayant validé cette transaction
         List<Validator> validatorsVoted = transactionValidatorVotes.get(transaction.getId());
 
         // Compare les deux listes pour voir si tous les validateurs ont validé
-        return validatorsVoted != null && validatorsVoted.size() == allValidators.size();
+        return validatorsVoted != null && validatorsVoted.size() == 2;
     }
 
     private List<Validator> getAllValidators() {
@@ -350,18 +349,21 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
 
     private void addValidatorVoteForTransaction(Transaction transaction) {
-        int transactionId = transaction.getId(); // Utilisez l'ID de la transaction pour la suivre
+        int transactionId = transaction.getId(); // Get transaction ID
 
-        // Si cette transaction n'a pas encore été enregistrée, créez une nouvelle liste pour les validateurs
+        // Initialize the list of validators for this transaction if not already present
         transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
 
-        // Ajoutez le validateur actuel à la liste des validateurs ayant validé cette transaction
+        // Add the current validator's vote if not already in the list
         List<Validator> validators = transactionValidatorVotes.get(transactionId);
         if (!validators.contains(validator)) {
             validators.add(validator);
-            System.out.println("Validateur " + validator.getId() + " a validé la transaction.");
+            System.out.println("Validator " + validator.getId() + " has validated the transaction.");
+        } else {
+            System.out.println("Validator " + validator.getId() + " has already validated this transaction.");
         }
     }
+
 
 
 
