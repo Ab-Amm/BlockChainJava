@@ -18,6 +18,7 @@ public class TransactionDAO {
     public TransactionDAO() {
         this.connection = DatabaseConnection.getConnection();
     }
+
     public String getReceiverUsername(int transactionId) {
         String receiverUsername = null;
         String sql = """
@@ -39,6 +40,37 @@ public class TransactionDAO {
         }
 
         return receiverUsername;
+    }
+
+    public Transaction getTransactionById(int transactionId) {
+        String sql = "SELECT * FROM transactions WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, transactionId);
+
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                // Créer une instance de Transaction avec les données principales
+                Transaction transaction = new Transaction(
+                        rs.getInt("id"),
+                        rs.getInt("sender_id"),
+                        rs.getString("receiver_key"),
+                        rs.getDouble("amount"),
+                        TransactionStatus.valueOf(rs.getString("status")),
+                        rs.getObject("block_id", Integer.class), // Nullable block_id
+                        rs.getTimestamp("created_at").toLocalDateTime()
+                );
+
+
+
+                return transaction;
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to fetch transaction by ID: " + transactionId);
+        }
+
+        return null;
     }
 
     public List<Transaction> getTransactionsByClient(int clientId) {

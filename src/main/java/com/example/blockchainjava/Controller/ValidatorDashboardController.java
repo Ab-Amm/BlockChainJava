@@ -2,6 +2,7 @@ package com.example.blockchainjava.Controller;
 
 import com.example.blockchainjava.Model.Block.Block;
 import com.example.blockchainjava.Model.Block.BlockChain;
+import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.User;
@@ -12,10 +13,14 @@ import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 
+import com.example.blockchainjava.Util.Network.ValidationMessage;
 import com.example.blockchainjava.Util.Security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -28,15 +33,16 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 
 import java.io.*;
-import java.net.BindException;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
+
 
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -44,8 +50,11 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private UserDAO userDAO;
+    private TransactionDAO transactionDAO;
     private Map<Integer, List<Validator>> transactionValidatorVotes = new HashMap<>();
     private final Connection connection;
+
+
 
     @FXML
     private TableView<Block> blockTable;
@@ -92,7 +101,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private SocketServer socketServer;
 
     public ValidatorDashboardController() throws NoSuchAlgorithmException {
-        this.userDAO = new UserDAO(); // Initialisation du DAO
+        this.userDAO = new UserDAO();
+        this.transactionDAO = new TransactionDAO();// Initialisation du DAO
         this.blockchain = new BlockChain();
         this.validator = new Validator();
         this.connection = DatabaseConnection.getConnection();
@@ -122,7 +132,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
 
             new Thread(() -> startSocketServer(8080)).start();
-
+            listenForValidationMessages();
             updateBlockchainView();
             updateUserTableView();
         } catch (Exception e) {
@@ -255,9 +265,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
                 // Verify the transaction signature
                 boolean isSignatureValid = SecurityUtils.verifySignature(
-                        selectedTransaction.getDataToSign(), // Data to verify
-                        selectedTransaction.getSignature(), // Signature to verify
-                        senderPublicKey                  // Sender's public key
+                        selectedTransaction.getDataToSign(),
+                        selectedTransaction.getSignature(),
+                        senderPublicKey
                 );
 
                 if (!isSignatureValid) {
@@ -278,78 +288,72 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
                 System.out.println("Balance check passed.");
 
-                // Add the transaction to the blockchain
-//                String signature = validator.sign(selectedTransaction);
-//
-//                blockchain.addBlock(selectedTransaction, signature);
-//
-//                // Update the blockchain view
-//                updateBlockchainView();
-//
-//                System.out.println("Transaction successfully added to blockchain.");
-//                System.out.println("=== End of validateTransaction ===");
-//            } catch (Exception e) {
-//                showError("Validation Error", "Failed to validate transaction: " + e.getMessage());
-//            }
-//        } else {
-//            showError("Validation Error", "No transaction selected or components not initialized.");
-//        }
-//    }
-                // 4. Vérifiez si tous les validateurs ont validé la transaction
+                // Notify other validators and record the validation
+                notifyValidatorsOfValidation(selectedTransaction);
                 addValidatorVoteForTransaction(selectedTransaction);
-                if (isTransactionValidatedByAllValidators(selectedTransaction)) {
-                    // Si tous les validateurs ont validé, ajoutez la transaction à la blockchain
-                    String signature = validator.sign(selectedTransaction);
-                    blockchain.addBlock(selectedTransaction, signature);
-                    updateBlockchainView(); // Mise à jour de la vue de la blockchain
-                    System.out.println("Transaction ajoutée avec succès à la blockchain.");
-                } else {
-                    // Si tous les validateurs n'ont pas encore validé, ne rien faire
-                    System.out.println("Transaction en attente de validation par tous les validateurs.");
-                }
 
             } catch (Exception e) {
-                showError("Erreur de validation", "Échec de la validation de la transaction: " + e.getMessage());
+                showError("Validation Error", "Failed to validate transaction: " + e.getMessage());
             }
         } else {
-            showError("Erreur de validation", "Aucune transaction sélectionnée ou composants non initialisés.");
+            showError("Validation Error", "No transaction selected or components not initialized.");
         }
     }
-    private boolean isTransactionValidatedByAllValidators(Transaction transaction) {
 
-        // Récupère la liste des validateurs ayant validé cette transaction
+    private boolean isTransactionValidatedByAllValidators(Transaction transaction) {
+        // Get the list of validators who have validated this transaction
         List<Validator> validatorsVoted = transactionValidatorVotes.get(transaction.getId());
 
-        // Compare les deux listes pour voir si tous les validateurs ont validé
-        return validatorsVoted != null && validatorsVoted.size() == 2;
+        // Compare against required number of validators (2 in this case)
+        return validatorsVoted != null && validatorsVoted.size() >= getRequiredValidatorCount();
     }
 
-    private List<Validator> getAllValidators() {
+    private int getRequiredValidatorCount() {
+        return 2; // Could be made configurable in the future
+    }
+
+    private List<Validator> getOtherValidators() {
         List<Validator> validators = new ArrayList<>();
-        String sql = "SELECT ip_address, port FROM validators"; // Table 'validators' avec colonnes 'ip_address' et 'port'
+        String sql = "SELECT ip_address, port FROM validators";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
+
+            String currentValidatorIp = getCurrentValidatorIp();
+            int currentValidatorPort = getCurrentValidatorPort();
 
             while (rs.next()) {
                 String ip = rs.getString("ip_address");
                 int port = rs.getInt("port");
 
-                // Créez un objet Validator basé sur l'adresse IP et le port
+                if (ip.equals(currentValidatorIp) && port == currentValidatorPort) {
+                    continue;
+                }
+
                 Validator validator = new Validator(ip, port);
                 validators.add(validator);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("Error fetching validators from database: " + e.getMessage());
+        } catch (SQLException e) {
+            System.err.println("Error fetching validators from database: " + e.getMessage());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
 
-        return validators; // Retourne une liste plate de Validator
+        return validators;
     }
 
+    private String getCurrentValidatorIp() {
+        // This should be configured properly in a production environment
+        return "25.50.53.183";
+    }
+
+    private int getCurrentValidatorPort() {
+        // This should be configured properly in a production environment
+        return 8080;
+    }
 
     private void addValidatorVoteForTransaction(Transaction transaction) {
-        int transactionId = transaction.getId(); // Get transaction ID
+        int transactionId = transaction.getId();
 
         // Initialize the list of validators for this transaction if not already present
         transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
@@ -359,10 +363,116 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         if (!validators.contains(validator)) {
             validators.add(validator);
             System.out.println("Validator " + validator.getId() + " has validated the transaction.");
+
+            // Check if we have enough validations
+            if (isTransactionValidatedByAllValidators(transaction)) {
+                addTransactionToBlockchain(transactionId);
+            }
         } else {
             System.out.println("Validator " + validator.getId() + " has already validated this transaction.");
         }
     }
+
+    private void notifyValidatorsOfValidation(Transaction transaction) throws JsonProcessingException {
+        String message = createValidationMessage(transaction);
+        for (Validator v : getOtherValidators()) {
+            sendMessageToValidator(v, message);
+        }
+    }
+
+    private String createValidationMessage(Transaction transaction) throws JsonProcessingException {
+        ValidationMessage message = new ValidationMessage(
+                transaction.getId(),
+                validator.getId(),
+                "validated"
+        );
+        return new ObjectMapper().writeValueAsString(message);
+    }
+
+    private void sendMessageToValidator(Validator validator, String message) {
+        try {
+            URL url = new URL("http://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate");
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+
+            try (OutputStream os = connection.getOutputStream()) {
+                os.write(message.getBytes(StandardCharsets.UTF_8));
+            }
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                System.err.println("Failed to send validation message to validator " + validator.getId());
+            }
+
+            connection.disconnect();
+        } catch (IOException e) {
+            System.err.println("Error sending message to validator " + validator.getId() + ": " + e.getMessage());
+        }
+    }
+
+    private void listenForValidationMessages() {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress(validator.getPort()), 0);
+            server.createContext("/validate", new HttpHandler() {
+                @Override
+                public void handle(HttpExchange exchange) throws IOException {
+                    String message = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    handleReceivedValidationMessage(message);
+
+                    String response = "Validation message received.";
+                    exchange.sendResponseHeaders(200, response.getBytes().length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                }
+            });
+
+            server.start();
+            System.out.println("Validator is now listening for validation messages...");
+        } catch (IOException e) {
+            System.err.println("Error starting validation server: " + e.getMessage());
+        }
+    }
+
+    private void handleReceivedValidationMessage(String message) {
+        try {
+            ValidationMessage validationMessage = new ObjectMapper().readValue(message, ValidationMessage.class);
+
+            if ("validated".equals(validationMessage.getStatus())) {
+                Transaction transaction = transactionDAO.getTransactionById(validationMessage.getTransactionId());
+                if (transaction != null) {
+                    addValidatorVoteForTransaction(transaction);
+                } else {
+                    System.err.println("Transaction not found: " + validationMessage.getTransactionId());
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Invalid message format received: " + e.getMessage());
+        }
+    }
+
+    private void addTransactionToBlockchain(int transactionId) {
+        try {
+            Transaction transaction = transactionDAO.getTransactionById(transactionId);
+            if (transaction == null) {
+                throw new IllegalStateException("Transaction not found: " + transactionId);
+            }
+
+            String signature = validator.sign(transaction);
+            blockchain.addBlock(transaction, signature);
+            updateBlockchainView();
+            System.out.println("Transaction " + transactionId + " successfully added to the blockchain.");
+
+            // Clean up the validation votes for this transaction
+            transactionValidatorVotes.remove(transactionId);
+        } catch (Exception e) {
+            System.err.println("Failed to add transaction to blockchain: " + e.getMessage());
+        }
+    }
+
+
 
 
 
