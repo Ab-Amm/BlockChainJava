@@ -22,5 +22,6 @@ module com.example.blockchainjava {
     exports com.example.blockchainjava;
     opens com.example.blockchainjava to javafx.fxml;
     opens com.example.blockchainjava.Model.User to javafx.base;
+    opens com.example.blockchainjava.Util.Network to com.fasterxml.jackson.databind;
     exports com.example.blockchainjava.Model.Transaction to com.fasterxml.jackson.databind;
 }
