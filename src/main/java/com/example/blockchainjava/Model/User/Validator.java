@@ -27,6 +27,15 @@ public class Validator extends User {
         generateKeyPair(); // Générer une paire de clés pour le validateur
         this.validatorAddress = HashUtil.generateAddress(publicKey); // Générer une adresse à partir de la clé publique
     }
+    public Validator(String ipAddress, int port) throws NoSuchAlgorithmException {
+        super(" ", " ", UserRole.VALIDATOR); // Appel au constructeur de la classe parente User
+        this.ipAddress = ipAddress;
+        this.port = port;
+        this.balance = 0.0; // Solde initial à 0
+        this.isActive = true; // Le validateur est actif par défaut
+        generateKeyPair(); // Générer une paire de clés pour le validateur
+        this.validatorAddress = HashUtil.generateAddress(publicKey); // Générer une adresse à partir de la clé publique
+    }
 
     public Validator(String username, String password) throws NoSuchAlgorithmException {
         super(username, password, UserRole.VALIDATOR);
@@ -47,6 +56,7 @@ public class Validator extends User {
         this.ipAddress = ipAddress;
         this.port = port;
     }
+
 
     public Validator(String username, String password, String ipAddress, int port , double balance) throws NoSuchAlgorithmException {
         this(username, password); // Appel au constructeur principal
