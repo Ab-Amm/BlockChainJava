@@ -269,6 +269,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
                 // Add the transaction to the blockchain
                 String signature = validator.sign(selectedTransaction);
+
                 blockchain.addBlock(selectedTransaction, signature);
 
                 // Update the blockchain view

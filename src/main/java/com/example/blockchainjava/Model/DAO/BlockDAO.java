@@ -42,24 +42,23 @@ public class BlockDAO {
 
     public List<Block> getAllBlocks() {
         List<Block> blocks = new ArrayList<>();
-//        String sql = "SELECT * FROM blocks ORDER BY block_id";
-//
-//        try (PreparedStatement stmt = connection.prepareStatement(sql);
-//             ResultSet rs = stmt.executeQuery()) {
-//
-//            while (rs.next()) {
-//                Block block = new Block(
-//                        rs.getString("previous_hash"),
-//                        null,  // Transaction will be loaded separately
-//                        rs.getString("validator_signature")
-//                );
-//                // Set other properties
-//                blocks.add(block);
-//            }
-//        } catch (SQLException e) {
-//            throw new RuntimeException("Failed to load blocks", e);
-//        }
-//        return blocks;
-        return blocks ;
+        String sql = "SELECT * FROM blocks ORDER BY id";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                Block block = new Block(
+                        rs.getString("previous_hash"),
+                        null,  // Transaction will be loaded separately
+                        rs.getString("validator_signature")
+                );
+                // Set other properties
+                blocks.add(block);
+           }
+       } catch (SQLException e) {
+           throw new RuntimeException("Failed to load blocks", e);
+       }
+        return blocks;
     }
 }

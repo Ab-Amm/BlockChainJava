@@ -15,6 +15,11 @@ public class BlockChain {
     private final BlockDAO blockDAO;
     private final List<BlockchainUpdateObserver> observers;
 
+    private void loadChainFromDatabase() {
+        List<Block> blocksFromDB = blockDAO.getAllBlocks();
+        chain.addAll(blocksFromDB);
+    }
+
     public BlockChain() {
         this.chain = new ArrayList<>();
         this.blockDAO = new BlockDAO();
@@ -22,10 +27,6 @@ public class BlockChain {
         loadChainFromDatabase();
     }
 
-    private void loadChainFromDatabase() {
-        List<Block> blocksFromDB = blockDAO.getAllBlocks();
-        chain.addAll(blocksFromDB);
-    }
 
     public void addBlock(Transaction transaction, String validatorSignature) {
         String previousHash = chain.isEmpty() ? "0" : chain.getLast().getCurrentHash();
