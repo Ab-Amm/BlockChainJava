@@ -34,6 +34,9 @@ import javafx.scene.control.TextField;
 
 import java.io.*;
 import java.net.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -41,7 +44,13 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -51,7 +60,9 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private UserDAO userDAO;
     private TransactionDAO transactionDAO;
-    private Map<Integer, List<Validator>> transactionValidatorVotes = new HashMap<>();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+    private final Map<Integer, List<Validator>> transactionValidatorVotes = new ConcurrentHashMap<>();
+
     private final Connection connection;
 
 
@@ -248,22 +259,19 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     @FXML
     private void validateTransaction() {
         Transaction selectedTransaction = pendingTransactionsTable.getSelectionModel().getSelectedItem();
+        if (selectedTransaction == null || blockchain == null) {
+            showError("Validation Error", "No transaction selected or components not initialized.");
+            return;
+        }
 
-        if (selectedTransaction != null && blockchain != null) {
+        CompletableFuture.runAsync(() -> {
             try {
-                System.out.println("=== Start of validateTransaction ===");
-                System.out.println("Validating transaction: " + selectedTransaction);
-
-                // Fetch the sender's public key
                 String senderPublicKeyStr = getSenderPublicKey(String.valueOf(selectedTransaction.getSenderId()));
                 if (senderPublicKeyStr == null) {
                     throw new IllegalArgumentException("Sender's public key not found.");
                 }
+
                 PublicKey senderPublicKey = SecurityUtils.decodePublicKey(senderPublicKeyStr);
-
-                System.out.println("Sender's public key decoded successfully.");
-
-                // Verify the transaction signature
                 boolean isSignatureValid = SecurityUtils.verifySignature(
                         selectedTransaction.getDataToSign(),
                         selectedTransaction.getSignature(),
@@ -271,33 +279,21 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 );
 
                 if (!isSignatureValid) {
-                    throw new SecurityException("Invalid signature for the transaction.");
+                    throw new SecurityException("Invalid signature.");
                 }
 
-                System.out.println("Signature is valid.");
-
-                // Verify the sender's balance
                 User sender = getUserById(selectedTransaction.senderIdProperty());
-                if (sender == null) {
-                    throw new IllegalArgumentException("Sender not found.");
+                if (sender == null || sender.getBalance() < selectedTransaction.getAmount()) {
+                    throw new IllegalArgumentException("Invalid sender or insufficient balance.");
                 }
 
-                if (sender.getBalance() < selectedTransaction.getAmount()) {
-                    throw new IllegalArgumentException("Insufficient balance for the transaction.");
-                }
-
-                System.out.println("Balance check passed.");
-
-                // Notify other validators and record the validation
                 notifyValidatorsOfValidation(selectedTransaction);
                 addValidatorVoteForTransaction(selectedTransaction);
 
             } catch (Exception e) {
-                showError("Validation Error", "Failed to validate transaction: " + e.getMessage());
+                Platform.runLater(() -> showError("Validation Error", e.getMessage()));
             }
-        } else {
-            showError("Validation Error", "No transaction selected or components not initialized.");
-        }
+        }, executorService);
     }
 
     private boolean isTransactionValidatedByAllValidators(Transaction transaction) {
@@ -307,9 +303,59 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         // Compare against required number of validators (2 in this case)
         return validatorsVoted != null && validatorsVoted.size() >= getRequiredValidatorCount();
     }
-
     private int getRequiredValidatorCount() {
         return 2; // Could be made configurable in the future
+    }
+
+    private void addValidatorVoteForTransaction(Transaction transaction) {
+        int transactionId = transaction.getId();
+
+        // Initialize the list of validators for this transaction if not already present
+        transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
+
+        // Add the current validator's vote if not already in the list
+        List<Validator> validators = transactionValidatorVotes.get(transactionId);
+        if (!validators.contains(validator)) {
+            validators.add(validator);
+            System.out.println("Validator " + validator.getId() + " has validated the transaction.");
+
+            // Check if we have enough validations
+            if (isTransactionValidatedByAllValidators(transaction)) {
+                addTransactionToBlockchain(transactionId);
+            }
+        } else {
+            System.out.println("Validator " + validator.getId() + " has already validated this transaction.");
+        }
+    }
+    private void addTransactionToBlockchain(int transactionId) {
+        try {
+            Transaction transaction = transactionDAO.getTransactionById(transactionId);
+            if (transaction == null) {
+                throw new IllegalStateException("Transaction not found: " + transactionId);
+            }
+
+            String signature = validator.sign(transaction);
+            blockchain.addBlock(transaction, signature);
+            updateBlockchainView();
+            System.out.println("Transaction " + transactionId + " successfully added to the blockchain.");
+
+            // Clean up the validation votes for this transaction
+            transactionValidatorVotes.remove(transactionId);
+        } catch (Exception e) {
+            System.err.println("Failed to add transaction to blockchain: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+
+    private String createValidationMessage(Transaction transaction) throws JsonProcessingException {
+        ValidationMessage message = new ValidationMessage(
+                transaction.getId(),
+                validator.getId(),
+                "validated"
+        );
+        return new ObjectMapper().writeValueAsString(message);
     }
 
     private List<Validator> getOtherValidators() {
@@ -343,132 +389,110 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
     private String getCurrentValidatorIp() {
-        // This should be configured properly in a production environment
-        return "25.50.53.183";
+        return validator.getIpAddress();
     }
 
     private int getCurrentValidatorPort() {
-        // This should be configured properly in a production environment
-        return 8080;
-    }
-
-    private void addValidatorVoteForTransaction(Transaction transaction) {
-        int transactionId = transaction.getId();
-
-        // Initialize the list of validators for this transaction if not already present
-        transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
-
-        // Add the current validator's vote if not already in the list
-        List<Validator> validators = transactionValidatorVotes.get(transactionId);
-        if (!validators.contains(validator)) {
-            validators.add(validator);
-            System.out.println("Validator " + validator.getId() + " has validated the transaction.");
-
-            // Check if we have enough validations
-            if (isTransactionValidatedByAllValidators(transaction)) {
-                addTransactionToBlockchain(transactionId);
-            }
-        } else {
-            System.out.println("Validator " + validator.getId() + " has already validated this transaction.");
-        }
+        return validator.getPort();
     }
 
     private void notifyValidatorsOfValidation(Transaction transaction) throws JsonProcessingException {
         String message = createValidationMessage(transaction);
-        for (Validator v : getOtherValidators()) {
-            sendMessageToValidator(v, message);
-        }
-    }
+        List<Validator> validators = getOtherValidators();
 
-    private String createValidationMessage(Transaction transaction) throws JsonProcessingException {
-        ValidationMessage message = new ValidationMessage(
-                transaction.getId(),
-                validator.getId(),
-                "validated"
-        );
-        return new ObjectMapper().writeValueAsString(message);
+        for (Validator v : validators) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    sendMessageToValidator(v, message);
+                } catch (Exception e) {
+                    System.err.println("Failed to notify validator " + v.getId() + ": " + e.getMessage());
+                }
+            }, executorService);
+        }
     }
 
     private void sendMessageToValidator(Validator validator, String message) {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(message))
+                .build();
+
         try {
-            URL url = new URL("http://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json");
-
-            try (OutputStream os = connection.getOutputStream()) {
-                os.write(message.getBytes(StandardCharsets.UTF_8));
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new IOException("Invalid response: " + response.statusCode());
             }
-
-            int responseCode = connection.getResponseCode();
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                System.err.println("Failed to send validation message to validator " + validator.getId());
-            }
-
-            connection.disconnect();
-        } catch (IOException e) {
-            System.err.println("Error sending message to validator " + validator.getId() + ": " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send message to validator", e);
         }
     }
-
     private void listenForValidationMessages() {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(validator.getPort()), 0);
-            server.createContext("/validate", new HttpHandler() {
-                @Override
-                public void handle(HttpExchange exchange) throws IOException {
-                    String message = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                    handleReceivedValidationMessage(message);
+            HttpServer server = HttpServer.create(new InetSocketAddress(getCurrentValidatorPort()), 0);
+            server.setExecutor(executorService);
+            server.createContext("/validate", exchange -> {
+                String response = "Validation received";
+                try {
+                    if (!exchange.getRequestMethod().equals("POST")) {
+                        exchange.sendResponseHeaders(405, 0);
+                        return;
+                    }
 
-                    String response = "Validation message received.";
-                    exchange.sendResponseHeaders(200, response.getBytes().length);
+                    String message = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    System.out.println("Received validation message: " + message);
+
+                    handleReceivedValidationMessage(message);
+                    exchange.sendResponseHeaders(200, response.length());
                     try (OutputStream os = exchange.getResponseBody()) {
                         os.write(response.getBytes());
                     }
+                } catch (Exception e) {
+                    System.err.println("Error handling validation message: " + e.getMessage());
+                    exchange.sendResponseHeaders(500, e.getMessage().length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(e.getMessage().getBytes());
+                    }
+                } finally {
+                    exchange.close();
                 }
             });
 
             server.start();
-            System.out.println("Validator is now listening for validation messages...");
+            System.out.println("Validation server started on port " + getCurrentValidatorPort());
         } catch (IOException e) {
-            System.err.println("Error starting validation server: " + e.getMessage());
+            System.err.println("Failed to start validation server: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private void handleReceivedValidationMessage(String message) {
         try {
             ValidationMessage validationMessage = new ObjectMapper().readValue(message, ValidationMessage.class);
+            System.out.println("Processing validation message for transaction: " + validationMessage.getTransactionId());
 
-            if ("validated".equals(validationMessage.getStatus())) {
-                Transaction transaction = transactionDAO.getTransactionById(validationMessage.getTransactionId());
-                if (transaction != null) {
-                    addValidatorVoteForTransaction(transaction);
-                } else {
-                    System.err.println("Transaction not found: " + validationMessage.getTransactionId());
-                }
+            if (!"validated".equals(validationMessage.getStatus())) {
+                System.err.println("Invalid validation status: " + validationMessage.getStatus());
+                return;
             }
-        } catch (IOException e) {
-            System.err.println("Invalid message format received: " + e.getMessage());
-        }
-    }
 
-    private void addTransactionToBlockchain(int transactionId) {
-        try {
-            Transaction transaction = transactionDAO.getTransactionById(transactionId);
+            Transaction transaction = transactionDAO.getTransactionById(validationMessage.getTransactionId());
             if (transaction == null) {
-                throw new IllegalStateException("Transaction not found: " + transactionId);
+                System.err.println("Transaction not found: " + validationMessage.getTransactionId());
+                return;
             }
 
-            String signature = validator.sign(transaction);
-            blockchain.addBlock(transaction, signature);
-            updateBlockchainView();
-            System.out.println("Transaction " + transactionId + " successfully added to the blockchain.");
-
-            // Clean up the validation votes for this transaction
-            transactionValidatorVotes.remove(transactionId);
-        } catch (Exception e) {
-            System.err.println("Failed to add transaction to blockchain: " + e.getMessage());
+            Platform.runLater(() -> {
+                addValidatorVoteForTransaction(transaction);
+                System.out.println("Validation vote added for transaction: " + validationMessage.getTransactionId());
+            });
+        } catch (IOException e) {
+            System.err.println("Failed to process validation message: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

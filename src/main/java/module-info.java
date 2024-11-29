@@ -19,6 +19,7 @@ module com.example.blockchainjava {
     requires com.fasterxml.jackson.databind;
     requires java.sql;
     requires jdk.httpserver;
+    requires java.net.http;
     exports com.example.blockchainjava;
     opens com.example.blockchainjava to javafx.fxml;
     opens com.example.blockchainjava.Model.User to javafx.base;

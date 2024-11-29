@@ -18,6 +18,8 @@ public class User {
     private String privateKey;
     private String publicKey;
     private double balance ;
+
+
     public User(String username, String password, UserRole role) {
         this.id=incrementExact(getId());
         this.username = username;
