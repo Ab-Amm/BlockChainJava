@@ -125,6 +125,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
         this.connection = DatabaseConnection.getConnection();
         System.out.println("this is the validator connected to this dashboard: " + validator);
+        this.validator.loadValidatorData(currentUser.getId());
     }
 
     @FXML
@@ -154,6 +155,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             listenForValidationMessages();
             updateBlockchainView();
             updateUserTableView();
+            User currentUser = Session.getCurrentUser();
+            this.validator.loadValidatorData(currentUser.getId());
         } catch (Exception e) {
             showError("Initialization Error", "An error occurred during initialization: " + e.getMessage());
         }
@@ -426,10 +429,16 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
 
     private String getCurrentValidatorIp() {
+        User currentUser = Session.getCurrentUser();
+        this.validator.loadValidatorData(currentUser.getId());
+        System.out.println("l address de valid actuelle qu'il faut ignorer lors de send "+validator.getIpAddress());
         return validator.getIpAddress();
     }
 
     private int getCurrentValidatorPort() {
+        User currentUser = Session.getCurrentUser();
+        this.validator.loadValidatorData(currentUser.getId());
+        System.out.println("le port de valid actuelle qu'il faut ignorer lors de send "+validator.getIpAddress());
         return validator.getPort();
     }
 
