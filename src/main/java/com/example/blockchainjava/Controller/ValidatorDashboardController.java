@@ -447,40 +447,92 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         List<Validator> validators = getOtherValidators();
 
         for (Validator v : validators) {
+            if (!isValidatorAvailable(v)) {
+                System.out.println("Skipping offline validator: " + v.getId());
+                continue;
+            }
+
             CompletableFuture.runAsync(() -> {
                 try {
                     sendMessageToValidator(v, message);
                 } catch (Exception e) {
                     System.err.println("Failed to notify validator " + v.getId() + ": " + e.getMessage());
+                    e.printStackTrace();
                 }
             }, executorService);
         }
     }
 
+    private boolean isValidatorAvailable(Validator validator) {
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .build();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://" + validator.getIpAddress() + ":" + validator.getPort() + "/health"))
+                    .GET()
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200;
+        } catch (Exception e) {
+            System.err.println("Validator " + validator.getId() + " is not available: " + e.getMessage());
+            return false;
+        }
+    }
+
     private void sendMessageToValidator(Validator validator, String message) {
+        // Configure client with more generous timeouts and retry capability
         HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofSeconds(30))  // Increased timeout
                 .build();
 
+        // Use HTTP instead of HTTPS since we don't have SSL certificates set up
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate"))
+                .uri(URI.create("http://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(message))
+                .timeout(Duration.ofSeconds(30))  // Request timeout
                 .build();
 
-        try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) {
+        // Implement retry logic
+        int maxRetries = 3;
+        int currentTry = 0;
+
+        while (currentTry < maxRetries) {
+            try {
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    System.out.println("Successfully notified validator " + validator.getId());
+                    return;
+                }
                 throw new IOException("Invalid response: " + response.statusCode());
+            } catch (Exception e) {
+                currentTry++;
+                if (currentTry == maxRetries) {
+                    System.err.println("Failed to notify validator " + validator.getId() +
+                            " after " + maxRetries + " attempts: " + e.getMessage());
+                    throw new RuntimeException("Failed to send message to validator after " + maxRetries + " attempts", e);
+                }
+                // Wait before retrying (exponential backoff)
+                try {
+                    Thread.sleep(1000 * currentTry);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send message to validator", e);
         }
     }
     private void listenForValidationMessages() {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(8081), 0);
+            // Create server with a larger backlog
+            HttpServer server = HttpServer.create(new InetSocketAddress(getCurrentValidatorPort()), 100);
             server.setExecutor(executorService);
+
+            // Add error handling and logging
             server.createContext("/validate", exchange -> {
                 String response = "Validation received";
                 try {
@@ -489,27 +541,49 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                         return;
                     }
 
+                    // Add request logging
+                    String requestor = exchange.getRemoteAddress().toString();
+                    System.out.println("Received validation request from: " + requestor);
+
                     String message = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                     System.out.println("Received validation message: " + message);
 
                     handleReceivedValidationMessage(message);
+
+                    // Send success response
+                    exchange.getResponseHeaders().add("Content-Type", "application/json");
                     exchange.sendResponseHeaders(200, response.length());
                     try (OutputStream os = exchange.getResponseBody()) {
                         os.write(response.getBytes());
                     }
                 } catch (Exception e) {
                     System.err.println("Error handling validation message: " + e.getMessage());
-                    exchange.sendResponseHeaders(500, e.getMessage().length());
+                    String errorMessage = "Internal server error: " + e.getMessage();
+                    exchange.sendResponseHeaders(500, errorMessage.length());
                     try (OutputStream os = exchange.getResponseBody()) {
-                        os.write(e.getMessage().getBytes());
+                        os.write(errorMessage.getBytes());
                     }
                 } finally {
                     exchange.close();
                 }
             });
 
+            // Add a health check endpoint
+            server.createContext("/health", exchange -> {
+                if (!exchange.getRequestMethod().equals("GET")) {
+                    exchange.sendResponseHeaders(405, 0);
+                    return;
+                }
+                String response = "{\"status\":\"UP\"}";
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, response.length());
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(response.getBytes());
+                }
+            });
+
             server.start();
-            System.out.println("Validation server started on port " + 8081);
+            System.out.println("Validation server started on port " + getCurrentValidatorPort());
         } catch (IOException e) {
             System.err.println("Failed to start validation server: " + e.getMessage());
             e.printStackTrace();
