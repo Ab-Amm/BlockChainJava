@@ -157,6 +157,7 @@ public class Validator extends User {
     @Override
     public String toString() {
         return "Validator{" +
+                "id=" + getId() +
                 "username='" + getUsername() + '\'' +
                 ", validatorAddress='" + validatorAddress + '\'' +
                 ", isActive=" + isActive +

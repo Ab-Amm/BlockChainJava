@@ -121,7 +121,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             this.validator = new Validator(username);
         }else {
         System.err.println("No user is currently logged in.");
-    }
+        }
         this.connection = DatabaseConnection.getConnection();
         System.out.println("this is the validator connected to this dashboard: " + validator);
     }
@@ -324,9 +324,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
         // Add the current validator's vote if not already in the list
         List<Validator> validators = transactionValidatorVotes.get(transactionId);
-        if (!validators.contains(validator)) {
-            validators.add(validator);
-            System.out.println("Validator " + validator.getId() + " has validated the transaction.");
+        if (!validators.contains(this.validator)) {
+            validators.add(this.validator);
+            System.out.println("Validator " + this.validator.getId() +" (" + this.validator.getIpAddress() + ") " + " has validated the transaction.");
 
             // Check if we have enough validations
             if (isTransactionValidatedByAllValidators(transaction)) {
@@ -335,7 +335,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 addTransactionToBlockchain(transactionId);
             }
         } else {
-            System.out.println("Validator " + validator.getId() + " has already validated this transaction.");
+            System.out.println("Validator " + this.validator.getId() + " has already validated this transaction.");
         }
     }
     private void addTransactionToBlockchain(int transactionId) {
@@ -375,7 +375,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private List<Validator> getOtherValidators() {
         List<Validator> validators = new ArrayList<>();
-        String sql = "SELECT ip_address, port FROM validators";
+        String sql = "SELECT id, ip_address, port FROM validators";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
@@ -384,6 +384,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             int currentValidatorPort = getCurrentValidatorPort();
 
             while (rs.next()) {
+                int id = rs.getInt("id");
                 String ip = rs.getString("ip_address");
                 int port = rs.getInt("port");
 
@@ -449,7 +450,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
     private void listenForValidationMessages() {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(getCurrentValidatorPort()), 0);
+            HttpServer server = HttpServer.create(new InetSocketAddress(8081), 0);
             server.setExecutor(executorService);
             server.createContext("/validate", exchange -> {
                 String response = "Validation received";

@@ -16,34 +16,40 @@ public class UserDAO {
         this.connection = DatabaseConnection.getConnection();
     }
 
-    public static Validator getValidatorData(String username) {
-        // Assuming you have a UserDAO or ValidatorDAO that can query user details from the database
-        try (Connection connection = DatabaseConnection.getConnection()) {
-            String query = "SELECT u.username, v.ip_address, v.port " +
-                    "FROM validators v " +
-                    "JOIN users u ON v.id = u.id " +
-                    "WHERE u.username = ?";
+    public Validator getValidatorData(String username) {
+        String sql = """
+        SELECT u.username, u.password, u.balance, 
+               v.ip_address, v.port
+        FROM users u
+        JOIN validators v ON u.id = v.id
+        WHERE u.username = ? AND u.role = 'VALIDATOR'
+    """;
 
-            try (PreparedStatement stmt = connection.prepareStatement(query)) {
-                stmt.setString(1, username);
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, username); // Set the username parameter
+            ResultSet rs = stmt.executeQuery(); // Execute the query
 
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        Validator validator = new Validator(username);
-                        validator.setIpAddress(rs.getString("ip_address"));
-                        validator.setPort(rs.getInt("port"));
-                        return validator;
-                    }
-                } catch (NoSuchAlgorithmException e) {
-                    throw new RuntimeException(e);
-                }
+            if (rs.next()) {
+                // Retrieve data from the ResultSet
+                String password = rs.getString("password");
+                String ipAddress = rs.getString("ip_address");
+                int port = rs.getInt("port");
+                double balance = rs.getDouble("balance");
+
+                // Create the Validator object using the new constructor
+                Validator validator = new Validator(username, password, ipAddress, port, balance);
+
+                return validator; // Return the Validator object
+            } else {
+                System.out.println("No validator found with username: " + username);
             }
         } catch (SQLException e) {
-            System.err.println("Error fetching data from the database: " + e.getMessage());
-            e.printStackTrace();
+            throw new RuntimeException("Failed to load validator with username: " + username, e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error while creating validator object: " + username, e);
         }
 
-        return null;
+        return null; // Return null if no validator was found
     }
 
 
