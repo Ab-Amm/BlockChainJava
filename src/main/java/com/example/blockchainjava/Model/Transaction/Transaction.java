@@ -15,23 +15,11 @@ public class Transaction implements Serializable {
     private Integer blockId; // Nullable
     private LocalDateTime createdAt;
     private String signature; // Ajoute l'attribut signature
-    private String receiverUsername;
-    //    private String senderUsername ;
+
     @JsonIgnore // Ignore this field during deserialization
     private String dataToSign;
 
-//    public String getSenderUsername(){
-//        return senderUsername;
-//    }
 
-    // Getter et Setter pour receiverUsername
-    public String getReceiverUsername() {
-        return receiverUsername;
-    }
-
-    public void setReceiverUsername(String receiverUsername) {
-        this.receiverUsername = receiverUsername;
-    }
 
     public Integer idProperty() {
         return id;

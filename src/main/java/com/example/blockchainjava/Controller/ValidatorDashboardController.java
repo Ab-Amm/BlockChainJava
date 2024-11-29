@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+
 //import static com.example.blockchainjava.Model.DAO.DatabaseConnection.connection;
 
 public class ValidatorDashboardController implements BlockchainUpdateObserver {
@@ -117,8 +118,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         this.blockchain = new BlockChain();
         User currentUser = Session.getCurrentUser();
         if (currentUser != null) {
-            String username = currentUser.getUsername(); // Get the username from the current user;
-            this.validator = new Validator(username);
+            int Id = currentUser.getId(); // Get the username from the current user;
+            this.validator = new Validator(Id , currentUser.getUsername() , currentUser.getBalance());
         }else {
         System.err.println("No user is currently logged in.");
         }
@@ -318,6 +319,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private void addValidatorVoteForTransaction(Transaction transaction) {
         int transactionId = transaction.getId();
+        User currentUser = Session.getCurrentUser();
+        this.validator.loadValidatorData(currentUser.getId());
 
         // Initialize the list of validators for this transaction if not already present
         transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
@@ -375,24 +378,40 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private List<Validator> getOtherValidators() {
         List<Validator> validators = new ArrayList<>();
-        String sql = "SELECT id, ip_address, port FROM validators";
+        String sql = """
+        SELECT v.id, u.username, v.ip_address, v.port, u.balance 
+        FROM validators v
+        JOIN users u ON v.id = u.id
+        WHERE u.role = 'VALIDATOR'
+    """;
 
         try (PreparedStatement stmt = connection.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
+            // Obtenir les informations du validateur actuel
             String currentValidatorIp = getCurrentValidatorIp();
             int currentValidatorPort = getCurrentValidatorPort();
 
             while (rs.next()) {
                 int id = rs.getInt("id");
+                String username = rs.getString("username");
                 String ip = rs.getString("ip_address");
                 int port = rs.getInt("port");
+                double balance = rs.getDouble("balance");
 
+                // Exclure le validateur actuel
                 if (ip.equals(currentValidatorIp) && port == currentValidatorPort) {
                     continue;
                 }
 
-                Validator validator = new Validator(ip, port);
+                // Vérifier que le username n'est pas vide
+                if (username == null || username.isBlank()) {
+                    System.err.println("Validator with empty username found, skipping...");
+                    continue;
+                }
+
+                // Créer l'objet Validator
+                Validator validator = new Validator(id, username, ip, port, balance);
                 validators.add(validator);
                 System.out.println("Validator added to the list of other validators: " + validator);
             }
@@ -404,6 +423,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
         return validators;
     }
+
 
     private String getCurrentValidatorIp() {
         return validator.getIpAddress();
@@ -480,7 +500,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             });
 
             server.start();
-            System.out.println("Validation server started on port " + getCurrentValidatorPort());
+            System.out.println("Validation server started on port " + 8081);
         } catch (IOException e) {
             System.err.println("Failed to start validation server: " + e.getMessage());
             e.printStackTrace();

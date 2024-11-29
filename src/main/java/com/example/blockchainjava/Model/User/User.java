@@ -20,6 +20,12 @@ public class User {
     private double balance ;
 
 
+    public User(int id , String username , double balance ,UserRole role){
+        this.id=id;
+        this.username=username;
+        this.balance=balance;
+        this.role = role;
+    }
     public User(String username, String password, UserRole role) {
         this.id=incrementExact(getId());
         this.username = username;

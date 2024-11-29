@@ -16,37 +16,37 @@ public class UserDAO {
         this.connection = DatabaseConnection.getConnection();
     }
 
-    public Validator getValidatorData(String username) {
+    public Validator getValidatorData(int id) {
         String sql = """
-        SELECT u.username, u.password, u.balance, 
-               v.ip_address, v.port
+        SELECT u.id , u.username, u.password, u.balance, v.ip_address, v.port
         FROM users u
         JOIN validators v ON u.id = v.id
-        WHERE u.username = ? AND u.role = 'VALIDATOR'
+        WHERE u.id = ? AND u.role = 'VALIDATOR'
     """;
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, username); // Set the username parameter
+            stmt.setInt(1, id); // Set the username parameter
             ResultSet rs = stmt.executeQuery(); // Execute the query
 
             if (rs.next()) {
                 // Retrieve data from the ResultSet
+                String username=rs.getString("username");
                 String password = rs.getString("password");
                 String ipAddress = rs.getString("ip_address");
                 int port = rs.getInt("port");
                 double balance = rs.getDouble("balance");
 
                 // Create the Validator object using the new constructor
-                Validator validator = new Validator(username, password, ipAddress, port, balance);
+                Validator validator = new Validator(id ,username, ipAddress, port, balance);
 
                 return validator; // Return the Validator object
             } else {
-                System.out.println("No validator found with username: " + username);
+                System.out.println("No validator found with id: " + id);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to load validator with username: " + username, e);
+            throw new RuntimeException("Failed to load validator with id: " + id, e);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Error while creating validator object: " + username, e);
+            throw new RuntimeException("Error while creating validator object: " + id, e);
         }
 
         return null; // Return null if no validator was found
