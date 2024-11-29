@@ -438,7 +438,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private int getCurrentValidatorPort() {
         User currentUser = Session.getCurrentUser();
         this.validator.loadValidatorData(currentUser.getId());
-        System.out.println("le port de valid actuelle qu'il faut ignorer lors de send "+validator.getIpAddress());
+        System.out.println("le port de valid actuelle qu'il faut ignorer lors de send "+validator.getPort());
         return validator.getPort();
     }
 
