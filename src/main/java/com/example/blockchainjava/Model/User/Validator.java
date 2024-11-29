@@ -1,5 +1,6 @@
 package com.example.blockchainjava.Model.User;
 
+import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Util.Security.AuthenticationUtil;
 import com.example.blockchainjava.Util.Security.HashUtil;
@@ -20,13 +21,31 @@ public class Validator extends User {
     private double balance;   // Validator's balance in the system
 
     // Constructor with IP Address and Port
-    public Validator() throws NoSuchAlgorithmException {
-        super("default_username", "default_password", UserRole.VALIDATOR);  // Appel au constructeur de la classe parente User
-        this.balance = 0.0; // Solde initial à 0
-        this.isActive = true; // Le validateur est actif par défaut
-        generateKeyPair(); // Générer une paire de clés pour le validateur
-        this.validatorAddress = HashUtil.generateAddress(publicKey); // Générer une adresse à partir de la clé publique
+    public Validator(String username) throws NoSuchAlgorithmException {
+        super(username, "default_password", UserRole.VALIDATOR);  // Call the parent constructor (User)
+        this.balance = 0.0; // Initial balance set to 0
+        this.isActive = true; // Validator is active by default
+        generateKeyPair(); // Generate key pair for the validator
+        this.validatorAddress = HashUtil.generateAddress(publicKey); // Generate address from public key
+        loadValidatorData(username); // Load additional data (ipAddress, port, balance)
     }
+
+    private void loadValidatorData(String username) {
+        // Create a UserDAO object to access the database
+        UserDAO userDAO = new UserDAO();
+        Validator data = userDAO.getValidatorData(username);
+
+        if (data != null) {
+            this.ipAddress = data.getIpAddress();
+            this.port = data.getPort();
+            this.balance = data.getBalance();
+        } else {
+            System.err.println("No data found for the validator with username: " + username);
+        }
+    }
+
+
+
     public Validator(String ipAddress, int port) throws NoSuchAlgorithmException {
         super(" ", " ", UserRole.VALIDATOR); // Appel au constructeur de la classe parente User
         this.ipAddress = ipAddress;

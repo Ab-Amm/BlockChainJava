@@ -5,6 +5,7 @@ import com.example.blockchainjava.Model.Block.BlockChain;
 import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.User.Client;
+import com.example.blockchainjava.Model.User.Session;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.User.Validator;
 import com.example.blockchainjava.Util.Network.SocketClient;
@@ -109,14 +110,20 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private Validator validator;
     private BlockChain blockchain;
-    private SocketServer socketServer;
 
     public ValidatorDashboardController() throws NoSuchAlgorithmException {
         this.userDAO = new UserDAO();
         this.transactionDAO = new TransactionDAO();// Initialisation du DAO
         this.blockchain = new BlockChain();
-        this.validator = new Validator();
+        User currentUser = Session.getCurrentUser();
+        if (currentUser != null) {
+            String username = currentUser.getUsername(); // Get the username from the current user;
+            this.validator = new Validator(username);
+        }else {
+        System.err.println("No user is currently logged in.");
+    }
         this.connection = DatabaseConnection.getConnection();
+        System.out.println("this is the validator connected to this dashboard: " + validator);
     }
 
     @FXML
@@ -297,8 +304,10 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
     private boolean isTransactionValidatedByAllValidators(Transaction transaction) {
+        System.out.println("Checking if transaction " + transaction.getId() + " has been validated by all validators.");
         // Get the list of validators who have validated this transaction
         List<Validator> validatorsVoted = transactionValidatorVotes.get(transaction.getId());
+        System.out.println("Validators who have validated this transaction: " + validatorsVoted);
 
         // Compare against required number of validators (2 in this case)
         return validatorsVoted != null && validatorsVoted.size() >= getRequiredValidatorCount();
@@ -321,6 +330,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
             // Check if we have enough validations
             if (isTransactionValidatedByAllValidators(transaction)) {
+                System.out.println("Transaction " + transactionId + " has been validated by all validators.");
+                System.out.println("Adding transaction to blockchain...");
                 addTransactionToBlockchain(transactionId);
             }
         } else {
@@ -329,12 +340,16 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
     private void addTransactionToBlockchain(int transactionId) {
         try {
+            System.out.println("Adding transaction " + transactionId + " to the blockchain...");
             Transaction transaction = transactionDAO.getTransactionById(transactionId);
+            System.out.println("Transaction found: " + transaction);
             if (transaction == null) {
                 throw new IllegalStateException("Transaction not found: " + transactionId);
             }
 
+
             String signature = validator.sign(transaction);
+            System.out.println("Signature: " + signature);
             blockchain.addBlock(transaction, signature);
             updateBlockchainView();
             System.out.println("Transaction " + transactionId + " successfully added to the blockchain.");
@@ -378,6 +393,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
                 Validator validator = new Validator(ip, port);
                 validators.add(validator);
+                System.out.println("Validator added to the list of other validators: " + validator);
             }
         } catch (SQLException e) {
             System.err.println("Error fetching validators from database: " + e.getMessage());

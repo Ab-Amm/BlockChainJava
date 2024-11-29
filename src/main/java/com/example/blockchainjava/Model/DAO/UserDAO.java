@@ -16,6 +16,37 @@ public class UserDAO {
         this.connection = DatabaseConnection.getConnection();
     }
 
+    public static Validator getValidatorData(String username) {
+        // Assuming you have a UserDAO or ValidatorDAO that can query user details from the database
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String query = "SELECT u.username, v.ip_address, v.port " +
+                    "FROM validators v " +
+                    "JOIN users u ON v.id = u.id " +
+                    "WHERE u.username = ?";
+
+            try (PreparedStatement stmt = connection.prepareStatement(query)) {
+                stmt.setString(1, username);
+
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        Validator validator = new Validator(username);
+                        validator.setIpAddress(rs.getString("ip_address"));
+                        validator.setPort(rs.getInt("port"));
+                        return validator;
+                    }
+                } catch (NoSuchAlgorithmException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching data from the database: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+
     public void saveUser(User user) {
         String sql = "INSERT INTO users (username, role, created_at, password, public_key, private_key) VALUES (?, ?, ?, ?, ?, ?)";
 
