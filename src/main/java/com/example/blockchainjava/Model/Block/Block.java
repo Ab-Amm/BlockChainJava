@@ -12,7 +12,9 @@ public class Block {
     private Transaction transaction;
     private LocalDateTime timestamp;
     private String validatorSignature;
-
+    public Block() {
+        // Constructeur par défaut
+    }
     public Block(String previousHash, Transaction transaction, String validatorSignature) {
         this.previousHash = previousHash;
         this.transaction = transaction;

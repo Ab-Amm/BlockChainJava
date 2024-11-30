@@ -362,7 +362,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
                 // Only the validator with the lowest ID creates the block
                 if (shouldCreateBlock(validators)) {
-                    addTransactionToBlockchain(transactionId);
+                    addTransactionToBlockchain(transaction);
                 } else {
                     System.out.println("Block will be created by validator with lower ID");
                 }
@@ -422,26 +422,21 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
 
-    private void addTransactionToBlockchain(int transactionId) {
+    private void addTransactionToBlockchain(Transaction transaction) {
         try {
-            System.out.println("Adding transaction " + transactionId + " to the blockchain...");
-            Transaction transaction = transactionDAO.getTransactionById(transactionId);
-            System.out.println("Transaction found: " + transaction);
-            if (transaction == null) {
-                throw new IllegalStateException("Transaction not found: " + transactionId);
-            }
+            System.out.println("Adding transaction " + transaction.getId() + " to the blockchain...");
 
             String signature = validator.sign(transaction);
             System.out.println("Signature: " + signature);
             blockchain.addBlock(transaction, signature);
             updateBlockchainView();
-            System.out.println("Transaction " + transactionId + " successfully added to the blockchain.");
+            System.out.println("Transaction " + transaction.getId() + " successfully added to the blockchain.");
 
             // Broadcast the new block to other validators
             broadcastNewBlock(transaction, signature);
 
             // Clean up the validation votes for this transaction
-            transactionValidatorVotes.remove(transactionId);
+            transactionValidatorVotes.remove(transaction.getId());
         } catch (Exception e) {
             System.err.println("Failed to add transaction to blockchain: " + e.getMessage());
             e.printStackTrace();

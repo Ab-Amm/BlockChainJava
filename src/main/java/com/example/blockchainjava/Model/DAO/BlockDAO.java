@@ -44,8 +44,8 @@ public class BlockDAO {
     public List<Block> getAllBlocks() {
         List<Block> blocks = new ArrayList<>();
         String sql = "SELECT b.*, t.* FROM blocks b " +
-                "LEFT JOIN transactions t ON b.block_id = t.block_id " +
-                "ORDER BY b.block_id";
+                "LEFT JOIN transactions t ON b.id = t.block_id " +
+                "ORDER BY b.id";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
@@ -53,7 +53,7 @@ public class BlockDAO {
             while (rs.next()) {
                 // Create Transaction object with full constructor
                 Transaction transaction = new Transaction(
-                        rs.getInt("transaction_id"),
+                        rs.getInt("id"),
                         rs.getInt("sender_id"),
                         rs.getString("receiver_key"),
                         rs.getDouble("amount"),
@@ -71,7 +71,7 @@ public class BlockDAO {
                         transaction,
                         rs.getString("validator_signature")
                 );
-                block.setBlockId(rs.getLong("block_id"));
+                block.setBlockId(rs.getLong("id"));
                 block.setCurrentHash(rs.getString("current_hash"));
                 block.setTimestamp(rs.getTimestamp("timestamp").toLocalDateTime());
 
