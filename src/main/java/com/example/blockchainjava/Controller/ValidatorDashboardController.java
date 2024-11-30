@@ -8,6 +8,7 @@ import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.Session;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.User.Validator;
+import com.example.blockchainjava.Util.Network.BlockMessage;
 import com.example.blockchainjava.Util.Network.SocketClient;
 import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
@@ -341,7 +342,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private void addValidatorVoteForTransaction(Transaction transaction, Validator sourceValidator) {
         int transactionId = transaction.getId();
 
-        // Initialize the votes list if it doesn't exist
         transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
         List<Validator> validators = transactionValidatorVotes.get(transactionId);
 
@@ -359,7 +359,13 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                         + getRequiredValidatorCount() + ")");
                 System.out.println("Adding transaction to blockchain...");
                 System.out.println("==========================\n");
-                addTransactionToBlockchain(transactionId);
+
+                // Only the validator with the lowest ID creates the block
+                if (shouldCreateBlock(validators)) {
+                    addTransactionToBlockchain(transactionId);
+                } else {
+                    System.out.println("Block will be created by validator with lower ID");
+                }
             } else {
                 int remainingValidators = getRequiredValidatorCount() - validators.size();
                 System.out.println("\n=== VALIDATION IN PROGRESS ===");
@@ -374,6 +380,25 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             System.out.println("================================\n");
         }
     }
+
+    private boolean shouldCreateBlock(List<Validator> validators) {
+        // Get current validator's ID
+        int currentValidatorId = this.validator.getId();
+
+        // Find the validator with the lowest ID
+        int lowestValidatorId = validators.stream()
+                .mapToInt(Validator::getId)
+                .min()
+                .orElse(Integer.MAX_VALUE);
+
+        System.out.println("Current validator ID: " + currentValidatorId);
+        System.out.println("Lowest validator ID: " + lowestValidatorId);
+
+        return currentValidatorId == lowestValidatorId;
+    }
+
+
+
     private void logValidatorVote(int transactionId, Validator validator, int currentVoteCount) {
         System.out.println("\n=== NEW VALIDATOR VOTE (#" + currentVoteCount + ") ===");
         System.out.println("Transaction ID: " + transactionId);
@@ -406,18 +431,76 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 throw new IllegalStateException("Transaction not found: " + transactionId);
             }
 
-
             String signature = validator.sign(transaction);
             System.out.println("Signature: " + signature);
             blockchain.addBlock(transaction, signature);
             updateBlockchainView();
             System.out.println("Transaction " + transactionId + " successfully added to the blockchain.");
 
+            // Broadcast the new block to other validators
+            broadcastNewBlock(transaction, signature);
+
             // Clean up the validation votes for this transaction
             transactionValidatorVotes.remove(transactionId);
         } catch (Exception e) {
             System.err.println("Failed to add transaction to blockchain: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private void broadcastNewBlock(Transaction transaction, String signature) {
+        // Create a message containing block information
+        BlockMessage blockMessage = new BlockMessage(
+                transaction.getId(),
+                signature,
+                validator.getId()
+        );
+
+        try {
+            String message = new ObjectMapper().writeValueAsString(blockMessage);
+            List<Validator> validators = getOtherValidators();
+
+            for (Validator v : validators) {
+                if (!isValidatorAvailable(v)) {
+                    System.out.println("Skipping offline validator for block broadcast: " + v.getId());
+                    continue;
+                }
+
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        sendBlockToValidator(v, message);
+                    } catch (Exception e) {
+                        System.err.println("Failed to send block to validator " + v.getId() + ": " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }, executorService);
+            }
+        } catch (JsonProcessingException e) {
+            System.err.println("Failed to create block message: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void sendBlockToValidator(Validator validator, String message) {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
+        String validatorUrl = "http://" + validator.getIpAddress() + ":" + VALIDATION_PORT + "/block";
+        System.out.println("Sending block to validator at: " + validatorUrl);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(validatorUrl))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(message))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("Block broadcast response from validator " + validator.getId() + ": " +
+                    "Status=" + response.statusCode() + ", Body=" + response.body());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send block to validator", e);
         }
     }
 
