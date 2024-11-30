@@ -46,6 +46,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -310,13 +311,22 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
     private boolean isTransactionValidatedByAllValidators(Transaction transaction) {
-        System.out.println("Checking if transaction " + transaction.getId() + " has been validated by all validators.");
-        // Get the list of validators who have validated this transaction
         List<Validator> validatorsVoted = transactionValidatorVotes.get(transaction.getId());
-        System.out.println("Validators who have validated this transaction: " + validatorsVoted);
 
-        // Compare against required number of validators (2 in this case)
-        return validatorsVoted != null && validatorsVoted.size() >= getRequiredValidatorCount();
+        if (validatorsVoted == null) {
+            System.out.println("No validators have voted for transaction " + transaction.getId());
+            return false;
+        }
+
+        boolean hasEnoughVotes = validatorsVoted.size() >= getRequiredValidatorCount();
+        System.out.println("\n=== Validation Check ===");
+        System.out.println("Transaction ID: " + transaction.getId());
+        System.out.println("Current votes: " + validatorsVoted.size());
+        System.out.println("Required votes: " + getRequiredValidatorCount());
+        System.out.println("Has enough votes: " + hasEnoughVotes);
+        System.out.println("=====================\n");
+
+        return hasEnoughVotes;
     }
     private int getRequiredValidatorCount() {
         return 2; // Could be made configurable in the future
@@ -329,23 +339,51 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
         // Initialize the list of validators for this transaction if not already present
         transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
+        List<Validator> validators = transactionValidatorVotes.get(transactionId);
 
         // Add the current validator's vote if not already in the list
-        List<Validator> validators = transactionValidatorVotes.get(transactionId);
         if (!validators.contains(this.validator)) {
             validators.add(this.validator);
-            System.out.println("Validator " + this.validator.getId() +" (" + this.validator.getIpAddress() + ") " + " has validated the transaction.");
+            logValidatorVote(transactionId, this.validator);
+            logCurrentValidationStatus(transactionId);
 
             // Check if we have enough validations
             if (isTransactionValidatedByAllValidators(transaction)) {
-                System.out.println("Transaction " + transactionId + " has been validated by all validators.");
+                System.out.println("Transaction " + transactionId + " has reached required validator count ("
+                        + getRequiredValidatorCount() + ")");
                 System.out.println("Adding transaction to blockchain...");
                 addTransactionToBlockchain(transactionId);
+            } else {
+                int remainingValidators = getRequiredValidatorCount() - validators.size();
+                System.out.println("Waiting for " + remainingValidators + " more validator(s) for transaction "
+                        + transactionId);
             }
         } else {
             System.out.println("Validator " + this.validator.getId() + " has already validated this transaction.");
         }
     }
+    private void logValidatorVote(int transactionId, Validator validator) {
+        System.out.println("\n=== New Validator Vote ===");
+        System.out.println("Transaction ID: " + transactionId);
+        System.out.println("Validator ID: " + validator.getId());
+        System.out.println("Validator IP: " + validator.getIpAddress());
+        System.out.println("Vote Time: " + LocalDateTime.now());
+    }
+
+    private void logCurrentValidationStatus(int transactionId) {
+        List<Validator> validators = transactionValidatorVotes.get(transactionId);
+        System.out.println("\n=== Current Validation Status ===");
+        System.out.println("Transaction ID: " + transactionId);
+        System.out.println("Current validator count: " + validators.size());
+        System.out.println("Required validator count: " + getRequiredValidatorCount());
+        System.out.println("\nValidators who have voted:");
+        for (Validator v : validators) {
+            System.out.println("- Validator " + v.getId() + " (" + v.getIpAddress() + ")");
+        }
+        System.out.println("==============================\n");
+    }
+
+
     private void addTransactionToBlockchain(int transactionId) {
         try {
             System.out.println("Adding transaction " + transactionId + " to the blockchain...");
