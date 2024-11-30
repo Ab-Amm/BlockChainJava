@@ -169,6 +169,4 @@ public class Transaction implements Serializable {
                 '}';
     }
 
-    public void setTransactionId(int transactionId) {
-    }
 }
