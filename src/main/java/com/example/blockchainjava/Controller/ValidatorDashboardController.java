@@ -319,11 +319,17 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
 
         boolean hasEnoughVotes = validatorsVoted.size() >= getRequiredValidatorCount();
-        System.out.println("\n=== Validation Check ===");
+        System.out.println("\n=== VALIDATION CHECK ===");
         System.out.println("Transaction ID: " + transaction.getId());
         System.out.println("Current votes: " + validatorsVoted.size());
         System.out.println("Required votes: " + getRequiredValidatorCount());
         System.out.println("Has enough votes: " + hasEnoughVotes);
+        if (hasEnoughVotes) {
+            System.out.println("\nValidating validators:");
+            validatorsVoted.forEach(v -> {
+                System.out.println("- Validator " + v.getId() + " (" + v.getIpAddress() + ")");
+            });
+        }
         System.out.println("=====================\n");
 
         return hasEnoughVotes;
@@ -334,53 +340,62 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private void addValidatorVoteForTransaction(Transaction transaction) {
         int transactionId = transaction.getId();
-        User currentUser = Session.getCurrentUser();
-        this.validator.loadValidatorData(currentUser.getId());
 
         // Initialize the list of validators for this transaction if not already present
         transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
         List<Validator> validators = transactionValidatorVotes.get(transactionId);
 
-        // Add the current validator's vote if not already in the list
-        if (!validators.contains(this.validator)) {
+        // Check if this validator has already voted by comparing IDs
+        boolean hasAlreadyVoted = validators.stream()
+                .anyMatch(v -> v.getId() == this.validator.getId());
+
+        if (!hasAlreadyVoted) {
             validators.add(this.validator);
-            logValidatorVote(transactionId, this.validator);
+            logValidatorVote(transactionId, this.validator, validators.size());
             logCurrentValidationStatus(transactionId);
 
             // Check if we have enough validations
             if (isTransactionValidatedByAllValidators(transaction)) {
+                System.out.println("\n=== VALIDATION COMPLETE ===");
                 System.out.println("Transaction " + transactionId + " has reached required validator count ("
                         + getRequiredValidatorCount() + ")");
                 System.out.println("Adding transaction to blockchain...");
+                System.out.println("==========================\n");
                 addTransactionToBlockchain(transactionId);
             } else {
                 int remainingValidators = getRequiredValidatorCount() - validators.size();
+                System.out.println("\n=== VALIDATION IN PROGRESS ===");
                 System.out.println("Waiting for " + remainingValidators + " more validator(s) for transaction "
                         + transactionId);
+                System.out.println("============================\n");
             }
         } else {
-            System.out.println("Validator " + this.validator.getId() + " has already validated this transaction.");
+            System.out.println("\n=== DUPLICATE VALIDATION ATTEMPT ===");
+            System.out.println("Validator " + this.validator.getId() + " (" + this.validator.getIpAddress() +
+                    ") has already validated transaction " + transactionId);
+            System.out.println("================================\n");
         }
     }
-    private void logValidatorVote(int transactionId, Validator validator) {
-        System.out.println("\n=== New Validator Vote ===");
+    private void logValidatorVote(int transactionId, Validator validator, int currentVoteCount) {
+        System.out.println("\n=== NEW VALIDATOR VOTE (#" + currentVoteCount + ") ===");
         System.out.println("Transaction ID: " + transactionId);
         System.out.println("Validator ID: " + validator.getId());
         System.out.println("Validator IP: " + validator.getIpAddress());
         System.out.println("Vote Time: " + LocalDateTime.now());
+        System.out.println("===============================\n");
     }
 
     private void logCurrentValidationStatus(int transactionId) {
         List<Validator> validators = transactionValidatorVotes.get(transactionId);
-        System.out.println("\n=== Current Validation Status ===");
+        System.out.println("\n=== CURRENT VALIDATION STATUS ===");
         System.out.println("Transaction ID: " + transactionId);
         System.out.println("Current validator count: " + validators.size());
         System.out.println("Required validator count: " + getRequiredValidatorCount());
         System.out.println("\nValidators who have voted:");
-        for (Validator v : validators) {
+        validators.forEach(v -> {
             System.out.println("- Validator " + v.getId() + " (" + v.getIpAddress() + ")");
-        }
-        System.out.println("==============================\n");
+        });
+        System.out.println("================================\n");
     }
 
 
@@ -688,7 +703,11 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             }
 
             ValidationMessage validationMessage = new ObjectMapper().readValue(message, ValidationMessage.class);
-            System.out.println("Processing validation message for transaction: " + validationMessage.getTransactionId());
+            System.out.println("\n=== RECEIVED VALIDATION MESSAGE ===");
+            System.out.println("Transaction ID: " + validationMessage.getTransactionId());
+            System.out.println("From Validator ID: " + validationMessage.getValidatorId());
+            System.out.println("Status: " + validationMessage.getStatus());
+            System.out.println("================================\n");
 
             if (!"validated".equals(validationMessage.getStatus())) {
                 System.err.println("Invalid validation status: " + validationMessage.getStatus());
@@ -701,9 +720,11 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 return;
             }
 
+            // Load the validator data for the received message
+            this.validator.loadValidatorData(validationMessage.getValidatorId());
+
             Platform.runLater(() -> {
                 addValidatorVoteForTransaction(transaction);
-                System.out.println("Validation vote added for transaction: " + validationMessage.getTransactionId());
             });
         } catch (IOException e) {
             System.err.println("Failed to process validation message: " + e.getMessage());
