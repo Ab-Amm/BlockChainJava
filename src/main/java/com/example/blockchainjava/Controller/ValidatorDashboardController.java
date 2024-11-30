@@ -111,6 +111,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private Validator validator;
     private BlockChain blockchain;
+    private static final int VALIDATION_PORT = 8081;
+    private static final int SERVER_PORT = 8080;
 
     public ValidatorDashboardController() throws NoSuchAlgorithmException {
         this.userDAO = new UserDAO();
@@ -470,7 +472,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                     .build();
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://" + validator.getIpAddress() + ":" + validator.getPort() + "/health"))
+                    .uri(URI.create("http://" + validator.getIpAddress() + ":" + VALIDATION_PORT + "/health"))
                     .GET()
                     .timeout(Duration.ofSeconds(5))
                     .build();
@@ -489,14 +491,14 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             // Try a basic Socket connection first to test network reachability
             try (Socket socket = new Socket()) {
                 // Set a shorter timeout for the connection test
-                socket.connect(new InetSocketAddress(validator.getIpAddress(), validator.getPort()), 5000);
+                socket.connect(new InetSocketAddress(validator.getIpAddress(), VALIDATION_PORT), 5000);
                 System.out.println("Basic connectivity test successful for validator " + validator.getId() +
-                        " at " + validator.getIpAddress() + ":" + validator.getPort());
+                        " at " + validator.getIpAddress() + ":" + VALIDATION_PORT);
                 return true;
             }
         } catch (Exception e) {
             System.out.println("Connection test failed for validator " + validator.getId() +
-                    " at " + validator.getIpAddress() + ":" + validator.getPort() +
+                    " at " + validator.getIpAddress() + ":" + VALIDATION_PORT +
                     ". Error: " + e.getMessage());
 
             // Print local network information for debugging
@@ -534,8 +536,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
 
-        String validatorUrl = "http://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate";
+        String validatorUrl = "http://" + validator.getIpAddress() + ":" + VALIDATION_PORT + "/validate";
         System.out.println("Attempting to send message to validator at: " + validatorUrl);
+        System.out.println("Sending validation message: " + message);
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(validatorUrl))
@@ -562,10 +565,30 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private void listenForValidationMessages() {
         try {
             // Bind to 0.0.0.0 instead of localhost to accept connections from any interface
-            HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", getCurrentValidatorPort()), 0);
+            HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", VALIDATION_PORT), 0);
             server.setExecutor(executorService);
 
+            // Add health check endpoint
+            server.createContext("/health", exchange -> {
+                if (!exchange.getRequestMethod().equals("GET")) {
+                    exchange.sendResponseHeaders(405, 0);
+                    return;
+                }
+                String response = "OK";
+                exchange.getResponseHeaders().add("Content-Type", "text/plain");
+                exchange.sendResponseHeaders(200, response.length());
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(response.getBytes());
+                }
+                exchange.close();
+            });
+
+            // Validation endpoint
             server.createContext("/validate", exchange -> {
+                System.out.println("Received validation request");
+                System.out.println("Received request method: " + exchange.getRequestMethod());
+                System.out.println("Received headers: " + exchange.getRequestHeaders());
+
                 String response = "Validation received";
                 try {
                     if (!exchange.getRequestMethod().equals("POST")) {
@@ -578,6 +601,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                     System.out.println("Received validation request from: " + remoteAddress.getAddress().getHostAddress() +
                             ":" + remoteAddress.getPort());
 
+                    // Read the message body only once
                     String message = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                     System.out.println("Received validation message: " + message);
 
@@ -608,7 +632,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                     while (addresses.hasMoreElements()) {
                         InetAddress addr = addresses.nextElement();
                         if (addr instanceof Inet4Address) {
-                            System.out.println("Server listening on: " + addr.getHostAddress() + ":" + getCurrentValidatorPort());
+                            System.out.println("Server listening on: " + addr.getHostAddress() + ":" + VALIDATION_PORT);
                         }
                     }
                 }
@@ -621,6 +645,10 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private void handleReceivedValidationMessage(String message) {
         try {
+            if (message == null || message.isEmpty()) {
+                throw new IllegalArgumentException("Empty validation message received");
+            }
+
             ValidationMessage validationMessage = new ObjectMapper().readValue(message, ValidationMessage.class);
             System.out.println("Processing validation message for transaction: " + validationMessage.getTransactionId());
 
