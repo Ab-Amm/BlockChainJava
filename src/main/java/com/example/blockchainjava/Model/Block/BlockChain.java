@@ -33,14 +33,14 @@ public class BlockChain {
         this.connection = DatabaseConnection.getConnection();
         loadChainFromDatabase();
     }
-    private Long generateNewBlockId() {
+    private int generateNewBlockId() {
         // Vous pouvez récupérer l'ID du dernier bloc de la base de données et l'incrémenter
         return blockDAO.getLastBlockId() + 1;
     }
 
     public void addBlock(Transaction transaction, String validatorSignature) {
         String previousHash = chain.isEmpty() ? "0" : chain.getLast().getCurrentHash();
-        Long newBlockId = generateNewBlockId();
+        int newBlockId = generateNewBlockId();
         Block newBlock = new Block(newBlockId,previousHash, transaction, validatorSignature);
         chain.add(newBlock);
         blockDAO.saveBlock(newBlock);

@@ -32,7 +32,7 @@ public class BlockDAO {
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     // Set the auto-generated blockId in the Block object
-                    block.setBlockId(rs.getLong(1));  // The first column contains the generated blockId
+                    block.setBlockId(rs.getInt(1));  // The first column contains the generated blockId
                 }
             }
         } catch (SQLException e) {
@@ -40,7 +40,7 @@ public class BlockDAO {
         }
     }
 
-    public Long getLastBlockId() {
+    public int getLastBlockId() {
         String sql = "SELECT MAX(id) AS last_id FROM blocks";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql);
@@ -48,13 +48,13 @@ public class BlockDAO {
 
             if (rs.next()) {
                 // Retourne l'ID du dernier bloc, ou null si la table est vide
-                return rs.getLong("last_id");
+                return rs.getInt("last_id");
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to get last block ID", e);
         }
 
-        return 0L;  // Si aucun bloc n'existe, retourne 0 ou une autre valeur de votre choix
+        return 0;  // Si aucun bloc n'existe, retourne 0 ou une autre valeur de votre choix
     }
 
     public List<Block> getAllBlocks() {
@@ -69,7 +69,7 @@ public class BlockDAO {
             while (rs.next()) {
                 // Create Transaction object with full constructor
                 Transaction transaction = new Transaction(
-                        rs.getInt("id"),
+                        rs.getInt("t.id"),
                         rs.getInt("sender_id"),
                         rs.getString("receiver_key"),
                         rs.getDouble("amount"),
@@ -83,12 +83,12 @@ public class BlockDAO {
 
                 // Create Block object with the transaction
                 Block block = new Block(
-                        rs.getLong("id"),
+                        rs.getInt("b.id"),
                         rs.getString("previous_hash"),
                         transaction,
                         rs.getString("validator_signature")
                 );
-                block.setBlockId(rs.getLong("id"));
+                block.setBlockId(rs.getInt("id"));
                 block.setCurrentHash(rs.getString("current_hash"));
                 block.setTimestamp(rs.getTimestamp("timestamp").toLocalDateTime());
 

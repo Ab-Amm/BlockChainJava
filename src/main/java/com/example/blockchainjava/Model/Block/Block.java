@@ -6,7 +6,7 @@ import com.example.blockchainjava.Util.Security.HashUtil;
 import java.time.LocalDateTime;
 
 public class Block {
-    private Long blockId;
+    private int blockId;
     private String previousHash;
     private String currentHash;
     private Transaction transaction;
@@ -15,7 +15,7 @@ public class Block {
     public Block() {
         // Constructeur par défaut
     }
-    public Block(Long blockId , String previousHash, Transaction transaction, String validatorSignature) {
+    public Block(int blockId , String previousHash, Transaction transaction, String validatorSignature) {
         this.blockId=blockId;
         this.previousHash = previousHash;
         this.transaction = transaction;
@@ -34,11 +34,11 @@ public class Block {
     }
 
 
-    public Long getBlockId() {
+    public int getBlockId() {
         return blockId;
     }
 
-    public void setBlockId(Long blockId) {
+    public void setBlockId(int blockId) {
         this.blockId = blockId;
     }
 
