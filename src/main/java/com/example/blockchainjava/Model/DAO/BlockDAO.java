@@ -1,7 +1,8 @@
 package com.example.blockchainjava.Model.DAO;
 
 import com.example.blockchainjava.Model.Block.Block;
-
+import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -42,23 +43,43 @@ public class BlockDAO {
 
     public List<Block> getAllBlocks() {
         List<Block> blocks = new ArrayList<>();
-//        String sql = "SELECT * FROM blocks ORDER BY id";
-//
-//        try (PreparedStatement stmt = connection.prepareStatement(sql);
-//             ResultSet rs = stmt.executeQuery()) {
-//
-//            while (rs.next()) {
-//                Block block = new Block(
-//                        rs.getString("previous_hash"),
-//                        null,  // Transaction will be loaded separately
-//                        rs.getString("validator_signature")
-//                );
-//                // Set other properties
-//                blocks.add(block);
-//           }
-//       } catch (SQLException e) {
-//           throw new RuntimeException("Failed to load blocks", e);
-//       }
+        String sql = "SELECT b.*, t.* FROM blocks b " +
+                "LEFT JOIN transactions t ON b.block_id = t.block_id " +
+                "ORDER BY b.block_id";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                // Create Transaction object with full constructor
+                Transaction transaction = new Transaction(
+                        rs.getInt("transaction_id"),
+                        rs.getInt("sender_id"),
+                        rs.getString("receiver_key"),
+                        rs.getDouble("amount"),
+                        TransactionStatus.valueOf(rs.getString("status")),
+                        rs.getInt("block_id"),
+                        rs.getTimestamp("created_at").toLocalDateTime()
+                );
+
+                // Set signature if it exists
+                transaction.setSignature(rs.getString("signature"));
+
+                // Create Block object with the transaction
+                Block block = new Block(
+                        rs.getString("previous_hash"),
+                        transaction,
+                        rs.getString("validator_signature")
+                );
+                block.setBlockId(rs.getLong("block_id"));
+                block.setCurrentHash(rs.getString("current_hash"));
+                block.setTimestamp(rs.getTimestamp("timestamp").toLocalDateTime());
+
+                blocks.add(block);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load blocks", e);
+        }
         return blocks;
     }
 }

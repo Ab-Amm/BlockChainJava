@@ -168,4 +168,7 @@ public class Transaction implements Serializable {
                 ", signature='" + signature + '\'' +
                 '}';
     }
+
+    public void setTransactionId(int transactionId) {
+    }
 }
