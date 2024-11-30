@@ -301,8 +301,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                     throw new IllegalArgumentException("Invalid sender or insufficient balance.");
                 }
 
+                addValidatorVoteForTransaction(selectedTransaction , this.validator);
                 notifyValidatorsOfValidation(selectedTransaction);
-                addValidatorVoteForTransaction(selectedTransaction);
 
             } catch (Exception e) {
                 Platform.runLater(() -> showError("Validation Error", e.getMessage()));
@@ -338,16 +338,15 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         return 2; // Could be made configurable in the future
     }
 
-    private void addValidatorVoteForTransaction(Transaction transaction) {
+    private void addValidatorVoteForTransaction(Transaction transaction , Validator sourceValidator) {
         int transactionId = transaction.getId();
 
         // Initialize the list of validators for this transaction if not already present
         transactionValidatorVotes.putIfAbsent(transactionId, new ArrayList<>());
         List<Validator> validators = transactionValidatorVotes.get(transactionId);
-
         // Check if this validator has already voted by comparing IDs
         boolean hasAlreadyVoted = validators.stream()
-                .anyMatch(v -> v.getId() == this.validator.getId());
+                .anyMatch(v -> v.getId() == sourceValidator.getId());
 
         if (!hasAlreadyVoted) {
             validators.add(this.validator);
@@ -720,17 +719,29 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 return;
             }
 
-            // Load the validator data for the received message
-            this.validator.loadValidatorData(validationMessage.getValidatorId());
-
+            // Trouver le validateur correspondant à l'ID reçu
+            Validator sourceValidator = findValidatorById(validationMessage.getValidatorId() , validationMessage.getTransactionId());
+            if (sourceValidator == null) {
+                System.err.println("Validator not found: " + validationMessage.getValidatorId());
+                return;
+            }
             Platform.runLater(() -> {
-                addValidatorVoteForTransaction(transaction);
+                addValidatorVoteForTransaction(transaction , sourceValidator);
             });
         } catch (IOException e) {
             System.err.println("Failed to process validation message: " + e.getMessage());
             e.printStackTrace();
         }
     }
+    private Validator findValidatorById(int validatorId , int transactionId) {
+        // Supposons que vous avez une liste de validateurs (validatorsList)
+        List<Validator> validators = transactionValidatorVotes.get(transactionId);
+        return validators.stream()
+                .filter(v -> v.getId() == validatorId)
+                .findFirst()
+                .orElse(null);
+    }
+
 
 
 
