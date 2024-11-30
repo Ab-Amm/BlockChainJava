@@ -479,60 +479,92 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             return response.statusCode() == 200;
         } catch (Exception e) {
             System.err.println("Validator " + validator.getId() + " is not available: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean testValidatorConnectivity(Validator validator) {
+        try {
+            // Try a basic Socket connection first to test network reachability
+            try (Socket socket = new Socket()) {
+                // Set a shorter timeout for the connection test
+                socket.connect(new InetSocketAddress(validator.getIpAddress(), validator.getPort()), 5000);
+                System.out.println("Basic connectivity test successful for validator " + validator.getId() +
+                        " at " + validator.getIpAddress() + ":" + validator.getPort());
+                return true;
+            }
+        } catch (Exception e) {
+            System.out.println("Connection test failed for validator " + validator.getId() +
+                    " at " + validator.getIpAddress() + ":" + validator.getPort() +
+                    ". Error: " + e.getMessage());
+
+            // Print local network information for debugging
+            try {
+                InetAddress localHost = InetAddress.getLocalHost();
+                System.out.println("Local host: " + localHost.getHostAddress());
+
+                Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+                while (interfaces.hasMoreElements()) {
+                    NetworkInterface ni = interfaces.nextElement();
+                    if (ni.isUp() && !ni.isLoopback()) {
+                        Enumeration<InetAddress> addresses = ni.getInetAddresses();
+                        while (addresses.hasMoreElements()) {
+                            InetAddress addr = addresses.nextElement();
+                            if (addr instanceof Inet4Address) {
+                                System.out.println("Available network interface: " + addr.getHostAddress());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ne) {
+                System.out.println("Could not print network interfaces: " + ne.getMessage());
+            }
+
             return false;
         }
     }
 
     private void sendMessageToValidator(Validator validator, String message) {
-        // Configure client with more generous timeouts and retry capability
+        if (!testValidatorConnectivity(validator)) {
+            throw new RuntimeException("Cannot establish basic network connection to validator");
+        }
+
         HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(30))  // Increased timeout
+                .connectTimeout(Duration.ofSeconds(10))
                 .build();
 
-        // Use HTTP instead of HTTPS since we don't have SSL certificates set up
+        String validatorUrl = "http://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate";
+        System.out.println("Attempting to send message to validator at: " + validatorUrl);
+
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("http://" + validator.getIpAddress() + ":" + validator.getPort() + "/validate"))
+                .uri(URI.create(validatorUrl))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(message))
-                .timeout(Duration.ofSeconds(30))  // Request timeout
                 .build();
 
-        // Implement retry logic
-        int maxRetries = 3;
-        int currentTry = 0;
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("Response from validator " + validator.getId() + ": " +
+                    "Status=" + response.statusCode() + ", Body=" + response.body());
 
-        while (currentTry < maxRetries) {
-            try {
-                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() == 200) {
-                    System.out.println("Successfully notified validator " + validator.getId());
-                    return;
-                }
+            if (response.statusCode() != 200) {
                 throw new IOException("Invalid response: " + response.statusCode());
-            } catch (Exception e) {
-                currentTry++;
-                if (currentTry == maxRetries) {
-                    System.err.println("Failed to notify validator " + validator.getId() +
-                            " after " + maxRetries + " attempts: " + e.getMessage());
-                    throw new RuntimeException("Failed to send message to validator after " + maxRetries + " attempts", e);
-                }
-                // Wait before retrying (exponential backoff)
-                try {
-                    Thread.sleep(1000 * currentTry);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
             }
+        } catch (Exception e) {
+            System.err.println("Failed to send message to validator at " + validatorUrl + ": " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to send message to validator", e);
         }
     }
+
+
     private void listenForValidationMessages() {
         try {
-            // Create server with a larger backlog
-            HttpServer server = HttpServer.create(new InetSocketAddress(getCurrentValidatorPort()), 100);
+            // Bind to 0.0.0.0 instead of localhost to accept connections from any interface
+            HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", getCurrentValidatorPort()), 0);
             server.setExecutor(executorService);
 
-            // Add error handling and logging
             server.createContext("/validate", exchange -> {
                 String response = "Validation received";
                 try {
@@ -541,16 +573,15 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                         return;
                     }
 
-                    // Add request logging
-                    String requestor = exchange.getRemoteAddress().toString();
-                    System.out.println("Received validation request from: " + requestor);
+                    // Log more connection details
+                    InetSocketAddress remoteAddress = exchange.getRemoteAddress();
+                    System.out.println("Received validation request from: " + remoteAddress.getAddress().getHostAddress() +
+                            ":" + remoteAddress.getPort());
 
                     String message = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                     System.out.println("Received validation message: " + message);
 
                     handleReceivedValidationMessage(message);
-
-                    // Send success response
                     exchange.getResponseHeaders().add("Content-Type", "application/json");
                     exchange.sendResponseHeaders(200, response.length());
                     try (OutputStream os = exchange.getResponseBody()) {
@@ -558,32 +589,30 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                     }
                 } catch (Exception e) {
                     System.err.println("Error handling validation message: " + e.getMessage());
-                    String errorMessage = "Internal server error: " + e.getMessage();
-                    exchange.sendResponseHeaders(500, errorMessage.length());
+                    exchange.sendResponseHeaders(500, e.getMessage().length());
                     try (OutputStream os = exchange.getResponseBody()) {
-                        os.write(errorMessage.getBytes());
+                        os.write(e.getMessage().getBytes());
                     }
                 } finally {
                     exchange.close();
                 }
             });
 
-            // Add a health check endpoint
-            server.createContext("/health", exchange -> {
-                if (!exchange.getRequestMethod().equals("GET")) {
-                    exchange.sendResponseHeaders(405, 0);
-                    return;
-                }
-                String response = "{\"status\":\"UP\"}";
-                exchange.getResponseHeaders().add("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, response.length());
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(response.getBytes());
-                }
-            });
-
             server.start();
-            System.out.println("Validation server started on port " + getCurrentValidatorPort());
+            // Print all bound addresses for verification
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface ni = interfaces.nextElement();
+                if (ni.isUp() && !ni.isLoopback()) {
+                    Enumeration<InetAddress> addresses = ni.getInetAddresses();
+                    while (addresses.hasMoreElements()) {
+                        InetAddress addr = addresses.nextElement();
+                        if (addr instanceof Inet4Address) {
+                            System.out.println("Server listening on: " + addr.getHostAddress() + ":" + getCurrentValidatorPort());
+                        }
+                    }
+                }
+            }
         } catch (IOException e) {
             System.err.println("Failed to start validation server: " + e.getMessage());
             e.printStackTrace();
