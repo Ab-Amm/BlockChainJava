@@ -40,6 +40,22 @@ public class BlockDAO {
         }
     }
 
+    public Long getLastBlockId() {
+        String sql = "SELECT MAX(id) AS last_id FROM blocks";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) {
+                // Retourne l'ID du dernier bloc, ou null si la table est vide
+                return rs.getLong("last_id");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to get last block ID", e);
+        }
+
+        return 0L;  // Si aucun bloc n'existe, retourne 0 ou une autre valeur de votre choix
+    }
 
     public List<Block> getAllBlocks() {
         List<Block> blocks = new ArrayList<>();
@@ -67,6 +83,7 @@ public class BlockDAO {
 
                 // Create Block object with the transaction
                 Block block = new Block(
+                        rs.getLong("id"),
                         rs.getString("previous_hash"),
                         transaction,
                         rs.getString("validator_signature")

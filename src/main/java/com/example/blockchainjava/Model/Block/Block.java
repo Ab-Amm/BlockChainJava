@@ -15,7 +15,8 @@ public class Block {
     public Block() {
         // Constructeur par défaut
     }
-    public Block(String previousHash, Transaction transaction, String validatorSignature) {
+    public Block(Long blockId , String previousHash, Transaction transaction, String validatorSignature) {
+        this.blockId=blockId;
         this.previousHash = previousHash;
         this.transaction = transaction;
         this.timestamp = LocalDateTime.now();
