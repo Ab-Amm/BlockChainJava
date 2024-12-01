@@ -57,7 +57,7 @@ public class BlockChain {
     private void updateTransactionWithBlockIdAndStatus(Transaction transaction, Block newBlock) {
         System.out.println("voici bach necrasiw");
         System.out.println(transaction);
-        String updateSql = "UPDATE transactions SET sender_id= ?, receiver_key = ?, amount = ?, block_id = ?, status = ? WHERE id = ?";
+        String updateSql = "UPDATE transactions SET sender_id= ?, receiver_key = ?, amount = ?, block_id = ?, status = ?, signature=? WHERE id = ?";
 
         try (PreparedStatement stmt = connection.prepareStatement(updateSql)) {
             // Récupérer l'id du bloc créé et le mettre à jour dans la transaction
@@ -67,7 +67,8 @@ public class BlockChain {
             stmt.setDouble(3, transaction.getAmount());  // amount
             stmt.setInt(4, newBlock.getBlockId());  // block_id (nouvel ID de bloc)
             stmt.setString(5, TransactionStatus.VALIDATED.name());  // status (changé en VALIDATED)
-            stmt.setInt(6, transaction.getId());  // id (transaction ID)
+            stmt.setString(6,transaction.getSignature());
+            stmt.setInt(7, transaction.getId());  // id (transaction ID)
 
             int rowsUpdated = stmt.executeUpdate();  // Utiliser executeUpdate() pour les requêtes de mise à jour
 
