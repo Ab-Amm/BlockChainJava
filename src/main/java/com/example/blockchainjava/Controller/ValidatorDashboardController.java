@@ -20,19 +20,18 @@ import com.example.blockchainjava.Util.Security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
-import javafx.scene.control.Alert;
+import javafx.scene.control.*;
 import javafx.fxml.FXML;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
 
 import java.io.*;
 import java.net.*;
@@ -49,14 +48,8 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
-
-
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 //import static com.example.blockchainjava.Model.DAO.DatabaseConnection.connection;
 
@@ -68,7 +61,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private final Map<Integer, LocalDateTime> validationTimestamps = new HashMap<>();
 
     private final Connection connection;
-
 
     @FXML
     private TableView<Block> blockTable;
@@ -109,6 +101,13 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList();
 
+    @FXML
+    private Label connectedValidatorsLabel;
+
+    @FXML
+    private Label connectedClientsLabel;
+
+    private final ScheduledExecutorService connectionUpdateExecutor = Executors.newSingleThreadScheduledExecutor();
 
     private Validator validator;
     private BlockChain blockchain;
@@ -153,13 +152,31 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
             blockchain.addObserver(this);
 
-
             new Thread(() -> startSocketServer(8080)).start();
             listenForValidationMessages();
             updateBlockchainView();
             updateUserTableView();
             User currentUser = Session.getCurrentUser();
             this.validator.loadValidatorData(currentUser.getId());
+
+            // Mark this validator as connected
+            userDAO.updateUserConnection(validator.getId(), true);
+
+            // Schedule periodic updates of connection counts using milliseconds
+            connectionUpdateExecutor.scheduleAtFixedRate(
+                this::updateConnectionCounts,
+                0, // initial delay
+                5000, // period (5 seconds in milliseconds)
+                java.util.concurrent.TimeUnit.MILLISECONDS
+            );
+
+            // Schedule cleanup of inactive connections
+            connectionUpdateExecutor.scheduleAtFixedRate(
+                () -> userDAO.cleanupInactiveConnections(Duration.ofMinutes(5)),
+                1, // initial delay
+                5, // period
+                java.util.concurrent.TimeUnit.MINUTES
+            );
         } catch (Exception e) {
             showError("Initialization Error", "An error occurred during initialization: " + e.getMessage());
         }
@@ -214,7 +231,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
 
-
     private void updatePendingTransactionsTable() {
         pendingTransactionsTable.setItems(pendingTransactionsList); // Associe les données actualisées à la table
     }
@@ -227,7 +243,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
 
-
     @Override
     public void onBlockchainUpdate(BlockChain updatedBlockchain) {
         this.blockchain = updatedBlockchain;
@@ -235,7 +250,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         // Met à jour la vue sur le thread JavaFX
         Platform.runLater(() -> updateBlockchainView());
     }
-
 
     private void updateBlockchainView() {
         Platform.runLater(() -> {
@@ -252,7 +266,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             }
         });
     }
-
 
     private void updateUserTableView() {
         try {
@@ -484,6 +497,10 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
     private void sendBlockToValidator(Validator validator, String message) {
+        if (!testValidatorConnectivity(validator)) {
+            throw new RuntimeException("Cannot establish basic network connection to validator");
+        }
+
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -906,5 +923,37 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    private void updateConnectionCounts() {
+        try {
+            int validatorCount = userDAO.getConnectedValidatorsCount();
+            int clientCount = userDAO.getConnectedClientsCount();
+
+            // Update UI on JavaFX thread
+            Platform.runLater(() -> {
+                connectedValidatorsLabel.setText("Connected Validators: " + validatorCount);
+                connectedClientsLabel.setText("Connected Clients: " + clientCount);
+            });
+        } catch (Exception e) {
+            System.err.println("Error updating connection counts: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void stop() {
+        try {
+            // Mark this validator as disconnected
+            if (validator != null) {
+                userDAO.updateUserConnection(validator.getId(), false);
+            }
+            
+            connectionUpdateExecutor.shutdown();
+            if (!connectionUpdateExecutor.awaitTermination(5000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                connectionUpdateExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            connectionUpdateExecutor.shutdownNow();
+        }
     }
 }

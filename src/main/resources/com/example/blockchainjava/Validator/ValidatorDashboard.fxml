@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
@@ -79,12 +78,14 @@
     </center>
 
     <bottom>
-        <HBox spacing="10" style="-fx-padding: 10;">
+        <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 10;">
             <Label text="Status: " style="-fx-font-weight: bold;"/>
             <Label fx:id="statusLabel"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label text="Connected Peers: " style="-fx-font-weight: bold;"/>
             <Label fx:id="peerCountLabel"/>
+            <Label fx:id="connectedValidatorsLabel" text="Connected Validators: 0" style="-fx-font-weight: bold;"/>
+            <Label fx:id="connectedClientsLabel" text="Connected Clients: 0" style="-fx-font-weight: bold;"/>
         </HBox>
     </bottom>
 </BorderPane>

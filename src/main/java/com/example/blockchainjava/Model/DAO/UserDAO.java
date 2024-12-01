@@ -6,8 +6,12 @@ import com.example.blockchainjava.Util.Security.HashUtil;
 
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class UserDAO {
     private final Connection connection;
@@ -147,7 +151,66 @@ public class UserDAO {
         }
     }
 
+    // Track user connections
+    private static final Map<Integer, LocalDateTime> activeUsers = new ConcurrentHashMap<>();
 
+    public void updateUserConnection(int userId, boolean isConnected) {
+        if (isConnected) {
+            activeUsers.put(userId, LocalDateTime.now());
+        } else {
+            activeUsers.remove(userId);
+        }
+        updateUserConnectionStatus(userId, isConnected);
+    }
+
+    private void updateUserConnectionStatus(int userId, boolean isConnected) {
+        String sql = "UPDATE users SET is_connected = ?, last_connection = ? WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setBoolean(1, isConnected);
+            stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.setInt(3, userId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("Error updating user connection status: " + e.getMessage());
+        }
+    }
+
+    public int getConnectedValidatorsCount() {
+        String sql = "SELECT COUNT(*) FROM users WHERE role = 'VALIDATOR' AND is_connected = true";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting connected validators count: " + e.getMessage());
+        }
+        return 0;
+    }
+
+    public int getConnectedClientsCount() {
+        String sql = "SELECT COUNT(*) FROM users WHERE role = 'CLIENT' AND is_connected = true";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting connected clients count: " + e.getMessage());
+        }
+        return 0;
+    }
+
+    public void cleanupInactiveConnections(Duration timeout) {
+        LocalDateTime cutoff = LocalDateTime.now().minus(timeout);
+        activeUsers.entrySet().removeIf(entry -> {
+            if (entry.getValue().isBefore(cutoff)) {
+                updateUserConnection(entry.getKey(), false);
+                return true;
+            }
+            return false;
+        });
+    }
 
     public User getUserByUsername(String username) {
         String sql = "SELECT * FROM users WHERE username = ?";
@@ -325,8 +388,6 @@ public class UserDAO {
         return clientList;
     }
 
-
-
     public void registerValidator(Validator validator) {
         // Code pour enregistrer le validateur dans la base de données.
         // Cela pourrait inclure l'ajout de l'utilisateur en tant que validateur, par exemple.
@@ -375,7 +436,6 @@ public class UserDAO {
         }
     }
 
-
     public void deleteValidator(Validator validator) {
         String deleteUserSQL = "DELETE FROM users WHERE username = ?";
 
@@ -420,8 +480,6 @@ public class UserDAO {
         return null; // Retourne null si aucun utilisateur n'est trouvé
     }
 
-
-
     // Méthode utilitaire pour obtenir le nombre de lignes dans le ResultSet
     private int getRowCount(ResultSet rs) throws SQLException {
         rs.last(); // Aller à la dernière ligne
@@ -429,7 +487,5 @@ public class UserDAO {
         rs.beforeFirst(); // Revenir au début du ResultSet
         return rowCount;
     }
-
-
 
 }
