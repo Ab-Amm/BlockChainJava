@@ -102,7 +102,11 @@ public class BlockChain {
     public List<Transaction> getPendingTransactions() {
         List<Transaction> transactions = new ArrayList<>();
         for (Block block : chain) {
-            transactions.add(block.getTransaction());
+            Transaction transaction = block.getTransaction();
+            // Vérifier si la transaction est en attente (PENDING)
+            if (transaction.getStatus() == TransactionStatus.PENDING) {
+                transactions.add(transaction);
+            }
         }
         return transactions;
     }
