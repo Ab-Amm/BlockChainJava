@@ -58,7 +58,6 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-
 //import static com.example.blockchainjava.Model.DAO.DatabaseConnection.connection;
 
 public class ValidatorDashboardController implements BlockchainUpdateObserver {
@@ -66,9 +65,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private TransactionDAO transactionDAO;
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
     private final Map<Integer, List<Validator>> transactionValidatorVotes = new ConcurrentHashMap<>();
+    private final Map<Integer, LocalDateTime> validationTimestamps = new HashMap<>();
 
     private final Connection connection;
-
 
 
     @FXML
@@ -125,7 +124,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             int Id = currentUser.getId(); // Get the username from the current user;
             this.validator = new Validator(Id , currentUser.getUsername() , currentUser.getBalance());
         }else {
-        System.err.println("No user is currently logged in.");
+            System.err.println("No user is currently logged in.");
         }
         this.connection = DatabaseConnection.getConnection();
         System.out.println("this is the validator connected to this dashboard: " + validator);
@@ -357,6 +356,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             logValidatorVote(transactionId, sourceValidator, validators.size());
             logCurrentValidationStatus(transactionId);
 
+            // Record validation timestamp for this validator
+            validationTimestamps.put(sourceValidator.getId(), LocalDateTime.now());
+
             if (isTransactionValidatedByAllValidators(transaction)) {
                 System.out.println("\n=== VALIDATION COMPLETE ===");
                 System.out.println("Transaction " + transactionId + " has reached required validator count ("
@@ -364,11 +366,11 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 System.out.println("Adding transaction to blockchain...");
                 System.out.println("==========================\n");
 
-                // Only the validator with the lowest ID creates the block
+                // Only the validator with the latest timestamp creates the block
                 if (shouldCreateBlock(validators)) {
                     addTransactionToBlockchain(transaction);
                 } else {
-                    System.out.println("Block will be created by validator with lower ID");
+                    System.out.println("Block will be created by validator with latest timestamp");
                 }
             } else {
                 int remainingValidators = getRequiredValidatorCount() - validators.size();
@@ -389,19 +391,21 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         // Get current validator's ID
         int currentValidatorId = this.validator.getId();
 
-        // Find the validator with the lowest ID
-        int lowestValidatorId = validators.stream()
-                .mapToInt(Validator::getId)
-                .min()
-                .orElse(Integer.MAX_VALUE);
+        // Get the latest validation timestamp
+        LocalDateTime latestTimestamp = validationTimestamps.values().stream()
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
+
+        // Check if current validator was the last to validate
+        boolean isLastValidator = latestTimestamp != null &&
+                validationTimestamps.get(currentValidatorId) != null &&
+                validationTimestamps.get(currentValidatorId).equals(latestTimestamp);
 
         System.out.println("Current validator ID: " + currentValidatorId);
-        System.out.println("Lowest validator ID: " + lowestValidatorId);
+        System.out.println("Is last validator to validate: " + isLastValidator);
 
-        return currentValidatorId == lowestValidatorId;
+        return isLastValidator;
     }
-
-
 
     private void logValidatorVote(int transactionId, Validator validator, int currentVoteCount) {
         System.out.println("\n=== NEW VALIDATOR VOTE (#" + currentVoteCount + ") ===");
@@ -424,7 +428,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         });
         System.out.println("================================\n");
     }
-
 
     private void addTransactionToBlockchain(Transaction transaction) {
         try {
@@ -498,12 +501,16 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             System.out.println("Block broadcast response from validator " + validator.getId() + ": " +
                     "Status=" + response.statusCode() + ", Body=" + response.body());
+
+            if (response.statusCode() != 200) {
+                throw new IOException("Invalid response: " + response.statusCode());
+            }
         } catch (Exception e) {
+            System.err.println("Failed to send block to validator at " + validatorUrl + ": " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Failed to send block to validator", e);
         }
     }
-
-
 
     private String createValidationMessage(Transaction transaction) throws JsonProcessingException {
         ValidationMessage message = new ValidationMessage(
@@ -561,7 +568,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
         return validators;
     }
-
 
     private String getCurrentValidatorIp() {
         User currentUser = Session.getCurrentUser();
@@ -693,7 +699,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             throw new RuntimeException("Failed to send message to validator", e);
         }
     }
-
 
     private void listenForValidationMessages() {
         try {
@@ -833,12 +838,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 .orElse(null);
     }
 
-
-
-
-
-
-
     private String getSenderPublicKey(String senderId) {
         // Retrieve the sender's public key from the user database
         User sender = getUserById(Integer.valueOf(senderId));
@@ -847,9 +846,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private User getUserById(Integer userId) {
         return userDAO.getUserById(userId); // Adjust this based on your actual DAO implementation
     }
-
-
-
 
     @FXML
     private void updateClientBalance() {
@@ -888,9 +884,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
 
-
-
-
     private void showSuccess(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
@@ -898,8 +891,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         alert.setContentText(message);
         alert.showAndWait();
     }
-
-
 
     public void setValidator(Validator validator) {
         this.validator = validator;
@@ -916,6 +907,4 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         alert.setContentText(content);
         alert.showAndWait();
     }
-
-
 }
