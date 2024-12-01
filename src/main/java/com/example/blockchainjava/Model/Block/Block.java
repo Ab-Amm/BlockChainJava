@@ -24,6 +24,8 @@ public class Block {
         this.currentHash = calculateHash();
     }
 
+
+
     private String calculateHash() {
         return HashUtil.sha256(
                 previousHash +

@@ -102,7 +102,7 @@ public class TransactionDAO {
                         rs.getTimestamp("created_at").toLocalDateTime()
                 );
 
-                // Stocker le `receiver_username` dans une Map côté contrôleur (sans l'ajouter à la classe Transaction)
+                // Stocker le receiver_username dans une Map côté contrôleur (sans l'ajouter à la classe Transaction)
                 String receiverUsername = rs.getString("receiver_username");
                 receiverUsernameMap.put(transaction.getId(), receiverUsername);
 
@@ -300,6 +300,45 @@ public class TransactionDAO {
         }
         return transactions;
     }
+    public boolean processTransactionBalances(Transaction transaction) {
+        String sqlUpdateSender = "UPDATE users SET balance = balance - ? WHERE id = ?";
+        String sqlUpdateReceiver = "UPDATE users SET balance = balance + ? WHERE public_key = ?";
+
+        try {
+            connection.setAutoCommit(false);
+
+            // Mise à jour du solde de l'expéditeur
+            try (PreparedStatement stmtSender = connection.prepareStatement(sqlUpdateSender)) {
+                stmtSender.setDouble(1, transaction.getAmount());
+                stmtSender.setInt(2, transaction.getSenderId());
+                stmtSender.executeUpdate();
+            }
+
+            // Mise à jour du solde du destinataire
+            try (PreparedStatement stmtReceiver = connection.prepareStatement(sqlUpdateReceiver)) {
+                stmtReceiver.setDouble(1, transaction.getAmount());
+                stmtReceiver.setString(2, transaction.getReceiverKey());
+                stmtReceiver.executeUpdate();
+            }
+
+            connection.commit();
+            return true;
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                throw new RuntimeException("Failed to rollback after an error.", rollbackEx);
+            }
+            throw new RuntimeException("Failed to process transaction balances for transaction ID: " + transaction.getId(), e);
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException ex) {
+                throw new RuntimeException("Failed to reset auto-commit mode.", ex);
+            }
+        }
+    }
+
 
     // Mettre à jour une transaction existante
     public void updateTransaction(Transaction transaction) {

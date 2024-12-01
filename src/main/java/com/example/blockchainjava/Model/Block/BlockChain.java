@@ -2,6 +2,7 @@ package com.example.blockchainjava.Model.Block;
 
 import com.example.blockchainjava.Controller.ValidatorDashboardController;
 import com.example.blockchainjava.Model.DAO.BlockDAO;
+import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
@@ -42,6 +43,15 @@ public class BlockChain {
         chain.add(newBlock);
         blockDAO.saveBlock(newBlock);
         updateTransactionWithBlockIdAndStatus(transaction, newBlock);
+
+        // Mettre à jour les soldes des utilisateurs dans la base de données
+        TransactionDAO transactionDAO = new TransactionDAO();
+        boolean balancesUpdated = transactionDAO.processTransactionBalances(transaction);
+        if (!balancesUpdated) {
+            throw new RuntimeException("Failed to update user balances after adding block.");
+        }
+
+
         notifyObservers();
     }
     private void updateTransactionWithBlockIdAndStatus(Transaction transaction, Block newBlock) {
@@ -56,7 +66,7 @@ public class BlockChain {
             stmt.setString(2, transaction.getReceiverKey());  // receiver_key
             stmt.setDouble(3, transaction.getAmount());  // amount
             stmt.setInt(4, newBlock.getBlockId());  // block_id (nouvel ID de bloc)
-            stmt.setString(5, TransactionStatus.VALIDATED.name());  // status (changé en COMPLETED)
+            stmt.setString(5, TransactionStatus.VALIDATED.name());  // status (changé en VALIDATED)
             stmt.setInt(6, transaction.getId());  // id (transaction ID)
 
             int rowsUpdated = stmt.executeUpdate();  // Utiliser executeUpdate() pour les requêtes de mise à jour

@@ -2,7 +2,7 @@ package com.example.blockchainjava.Util.Network;
 
 
 public class ValidationMessage {
-
+//    public String type="validation";
     private int transactionId;
     private int validatorId;
     private String status;
