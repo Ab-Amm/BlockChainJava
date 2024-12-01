@@ -8,10 +8,7 @@ import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Util.Network.SocketServer;
 
 //import java.sql.Connection;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
@@ -48,7 +45,9 @@ public class BlockChain {
         notifyObservers();
     }
     private void updateTransactionWithBlockIdAndStatus(Transaction transaction, Block newBlock) {
-        String updateSql = "UPDATE transactions SET sender_id= ? , receiver_key = ? , amount = ? , block_id = ?, status = ? , created_at = ? , signature = ? , WHERE id = ?";
+        System.out.println("voici bach necrasiw");
+        System.out.println(transaction);
+        String updateSql = "UPDATE transactions SET sender_id= ?, receiver_key = ?, amount = ?, block_id = ?, status = ? WHERE id = ?";
 
         try (PreparedStatement stmt = connection.prepareStatement(updateSql)) {
             // Récupérer l'id du bloc créé et le mettre à jour dans la transaction
@@ -56,17 +55,23 @@ public class BlockChain {
             stmt.setInt(1, transaction.getSenderId());  // sender_id
             stmt.setString(2, transaction.getReceiverKey());  // receiver_key
             stmt.setDouble(3, transaction.getAmount());  // amount
-            stmt.setLong(4, newBlock.getBlockId());  // block_id (nouvel ID de bloc)
-            stmt.setString(5, TransactionStatus.COMPLETED.name());  // status (changé en COMPLETED)
-            stmt.setTimestamp(6, Timestamp.valueOf(transaction.getCreatedAt()));  // created_at (en format Timestamp)
-            stmt.setString(7, transaction.getSignature());  // signature
-            stmt.setInt(8, transaction.getId());  // id (transaction ID)
-            stmt.executeUpdate();
+            stmt.setInt(4, newBlock.getBlockId());  // block_id (nouvel ID de bloc)
+            stmt.setString(5, TransactionStatus.VALIDATED.name());  // status (changé en COMPLETED)
+            stmt.setInt(6, transaction.getId());  // id (transaction ID)
+
+            int rowsUpdated = stmt.executeUpdate();  // Utiliser executeUpdate() pour les requêtes de mise à jour
+
+            if (rowsUpdated > 0) {
+                System.out.println("Transaction mise à jour avec succès");
+            } else {
+                System.out.println("Aucune transaction mise à jour avec l'ID : " + transaction.getId());
+            }
 
         } catch (SQLException e) {
             throw new RuntimeException("Failed to update transaction status and block_id", e);
         }
     }
+
 
     private void notifyObservers() {
         for (BlockchainUpdateObserver observer : observers) {
