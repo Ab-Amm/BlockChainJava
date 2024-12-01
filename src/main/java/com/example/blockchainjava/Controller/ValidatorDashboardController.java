@@ -305,6 +305,10 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 addValidatorVoteForTransaction(selectedTransaction , this.validator);
                 notifyValidatorsOfValidation(selectedTransaction);
 
+                Platform.runLater(() -> {
+                    pendingTransactionsList.remove(selectedTransaction);
+                    pendingTransactionsTable.refresh(); // Facultatif, mais utile pour forcer une mise à jour visuelle
+                });
             } catch (Exception e) {
                 Platform.runLater(() -> showError("Validation Error", e.getMessage()));
             }
