@@ -32,6 +32,7 @@ import javafx.scene.control.*;
 import javafx.fxml.FXML;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.stage.Stage;
 
 import java.io.*;
 import java.net.*;
@@ -128,6 +129,13 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         this.connection = DatabaseConnection.getConnection();
         System.out.println("this is the validator connected to this dashboard: " + validator);
         this.validator.loadValidatorData(currentUser.getId());
+
+        // Add shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (validator != null) {
+                userDAO.updateUserConnection(validator.getId(), false);
+            }
+        }));
     }
 
     @FXML
@@ -161,6 +169,14 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
             // Mark this validator as connected
             userDAO.updateUserConnection(validator.getId(), true);
+
+            // Add window closing event handler
+            Platform.runLater(() -> {
+                Stage stage = (Stage) pendingTransactionsTable.getScene().getWindow();
+                stage.setOnCloseRequest(event -> {
+                    stop();
+                });
+            });
 
             // Schedule periodic updates of connection counts using milliseconds
             connectionUpdateExecutor.scheduleAtFixedRate(
@@ -945,15 +961,42 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         try {
             // Mark this validator as disconnected
             if (validator != null) {
+                System.out.println("Marking validator " + validator.getId() + " as disconnected");
                 userDAO.updateUserConnection(validator.getId(), false);
             }
             
-            connectionUpdateExecutor.shutdown();
-            if (!connectionUpdateExecutor.awaitTermination(5000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                connectionUpdateExecutor.shutdownNow();
+            // Shutdown executor services
+            if (connectionUpdateExecutor != null) {
+                connectionUpdateExecutor.shutdown();
+                if (!connectionUpdateExecutor.awaitTermination(5000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    connectionUpdateExecutor.shutdownNow();
+                }
+            }
+            
+            if (executorService != null) {
+                executorService.shutdown();
+                if (!executorService.awaitTermination(5000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    executorService.shutdownNow();
+                }
+            }
+            
+            // Close database connections
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
             }
         } catch (InterruptedException e) {
-            connectionUpdateExecutor.shutdownNow();
+            System.err.println("Interrupted while shutting down executor services: " + e.getMessage());
+            if (connectionUpdateExecutor != null) {
+                connectionUpdateExecutor.shutdownNow();
+            }
+            if (executorService != null) {
+                executorService.shutdownNow();
+            }
+        } catch (SQLException e) {
+            System.err.println("Error closing database connection: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error during shutdown: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
