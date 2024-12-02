@@ -55,6 +55,36 @@ public class UserDAO {
 
         return null; // Return null if no validator was found
     }
+    public Client getClientData(int id) {
+        String sql = """
+        SELECT u.id , u.username, u.password, u.balance
+        FROM users u
+        WHERE u.id = ? AND u.role = 'CLIENT'
+    """;
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, id); // Set the username parameter
+            ResultSet rs = stmt.executeQuery(); // Execute the query
+
+            if (rs.next()) {
+                // Retrieve data from the ResultSet
+                String username=rs.getString("username");
+                String password = rs.getString("password");
+                double balance = rs.getDouble("balance");
+
+                // Create the Validator object using the new constructor
+                Client client = new Client(id ,username ,password,balance);
+
+                return client;
+            } else {
+                System.out.println("No validator found with id: " + id);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load validator with id: " + id, e);
+        }
+
+        return null; // Return null if no validator was found
+    }
 
 
     public void saveUser(User user) {

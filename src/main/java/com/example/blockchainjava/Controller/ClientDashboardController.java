@@ -1,8 +1,14 @@
 package com.example.blockchainjava.Controller;
 
+import com.example.blockchainjava.Model.DAO.DatabaseConnection;
+import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.DAO.TransactionDAO; // Classe pour récupérer les transactions depuis la base de données.
 import com.example.blockchainjava.Model.User.Client;
+import com.example.blockchainjava.Model.User.Session;
+import com.example.blockchainjava.Model.User.User;
+import com.example.blockchainjava.Model.User.Validator;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -11,13 +17,17 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.example.blockchainjava.Model.DAO.DatabaseConnection;
+import javafx.stage.Stage;
 
 public class ClientDashboardController {
-
+    private UserDAO userDAO;
     @FXML
     private Label usernameLabel;
 
@@ -47,15 +57,36 @@ public class ClientDashboardController {
     private Map<Integer, String> receiverUsernameMap = new HashMap<>();
     private TransactionDAO transactionDAO; // Classe DAO pour accéder aux transactions
     private ObservableList<Transaction> transactionsList;
-
+    private final Connection connection;
     private Client client;
 
     public ClientDashboardController() {
+        this.userDAO = new UserDAO();
         this.transactionDAO = new TransactionDAO(); // Initialisation du DAO
         this.transactionsList = FXCollections.observableArrayList();
+        User currentUser = Session.getCurrentUser();
+        if (currentUser != null) {
+            int Id = currentUser.getId();// Get the username from the current user;
+            System.out.println(Id);
+            this.client = new Client(Id , currentUser.getUsername() , currentUser.getBalance());
+        }else {
+            System.err.println("No user is currently logged in.");
+        }
+        this.connection = DatabaseConnection.getConnection();
+        System.out.println("this is the validator connected to this dashboard: " + client);
+        this.client.loadClientData(currentUser.getId());
+
+        // Add shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (client != null) {
+                userDAO.updateUserConnection(client.getId(), false);
+            }
+        }));
     }
     @FXML
     public void initialize() {
+        System.out.println(client.getId());
+        userDAO.updateUserConnection(client.getId(), true);
         receiverColumn.setCellValueFactory(cellData -> {
             Transaction transaction = cellData.getValue();
 
@@ -80,6 +111,10 @@ public class ClientDashboardController {
 
         // Charger les transactions dans le tableau
         loadTransactionHistory();
+        Platform.runLater(() -> {
+            Stage stage = (Stage) usernameLabel.getScene().getWindow();
+            stage.setOnCloseRequest(event -> stop());
+        });
     }
 
     /**
@@ -142,6 +177,22 @@ public class ClientDashboardController {
             System.err.println("Error loading transaction history: " + e.getMessage());
         }
     }
+    public void stop() {
 
+        try {
+            if (connection != null && !connection.isClosed()) {
+                // Marquer le client comme déconnecté
+                if (client != null) {
+                    System.out.println("Marking client " + client.getId() + " as disconnected");
+                    userDAO.updateUserConnection(client.getId(), false);
+                }
+            } else {
+                System.err.println("Connection is already closed. Cannot update user connection status.");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error checking connection status: " + e.getMessage());
+        }
+
+    }
 
 }

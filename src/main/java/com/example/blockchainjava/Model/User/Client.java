@@ -1,5 +1,6 @@
 package com.example.blockchainjava.Model.User;
 
+import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import javafx.beans.property.*;
 
@@ -18,6 +19,12 @@ public class Client extends User {
     }
     public Client(int id ,String username, String password , Double balance) {
         super(username, password, UserRole.CLIENT);
+        this.id=id;
+        this.balance = balance;
+        this.transactions = new ArrayList<>();
+    }
+    public Client(int id ,String username,Double balance) {
+        super(id , username, balance, UserRole.CLIENT);
         this.id=id;
         this.balance = balance;
         this.transactions = new ArrayList<>();
@@ -63,5 +70,18 @@ public class Client extends User {
     // Setter pour les transactions
     public void setTransactions(List<Transaction> transactions) {
         this.transactions = transactions;
+    }
+
+    public void loadClientData(int id) {
+        // Create a UserDAO object to access the database
+        UserDAO userDAO = new UserDAO();
+        Client data = userDAO.getClientData(id);
+
+        if (data != null) {
+            this.id=data.getId();
+            this.balance = data.getBalance();
+        } else {
+            System.err.println("No data found for the validator with username: " + username);
+        }
     }
 }
