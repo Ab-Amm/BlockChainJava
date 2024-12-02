@@ -22,11 +22,13 @@
                     <Label text="Blockchain Blocks" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
                     <TableView fx:id="blockTable" VBox.vgrow="ALWAYS">
                         <columns>
-                            <TableColumn fx:id="blockIdColumn" text="Block ID"/>
-                            <TableColumn fx:id="timestampColumn" text="Timestamp"/>
-                            <TableColumn fx:id="previousHashColumn" text="Previous Hash"/>
-                            <TableColumn fx:id="hashColumn" text="Hash"/>
-                            <TableColumn fx:id="transactionCountColumn" text="Transaction"/>
+                            <TableColumn fx:id="blockIdColumn" text="Block ID" prefWidth="80"/>
+                            <TableColumn fx:id="previousHashColumn" text="Previous Hash" prefWidth="150"/>
+                            <TableColumn fx:id="currentHashColumn" text="Current Hash" prefWidth="150"/>
+                            <TableColumn fx:id="transactionIdColumn" text="Transaction ID" prefWidth="100"/>
+                            <TableColumn fx:id="transactionAmountColumn" text="Amount" prefWidth="100"/>
+                            <TableColumn fx:id="validatorSignatureColumn" text="Validator Signature" prefWidth="150"/>
+                            <TableColumn fx:id="timestampColumn" text="Timestamp" prefWidth="150"/>
                         </columns>
                     </TableView>
                 </VBox>

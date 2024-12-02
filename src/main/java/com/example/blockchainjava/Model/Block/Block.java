@@ -24,8 +24,6 @@ public class Block {
         this.currentHash = calculateHash();
     }
 
-
-
     private String calculateHash() {
         return HashUtil.sha256(
                 previousHash +
@@ -35,6 +33,34 @@ public class Block {
         );
     }
 
+    // Property methods for TableView
+    public Integer idProperty() {
+        return blockId;
+    }
+
+    public String previousHashProperty() {
+        return previousHash;
+    }
+
+    public String currentHashProperty() {
+        return currentHash;
+    }
+
+    public Integer transactionIdProperty() {
+        return transaction != null ? transaction.getId() : null;
+    }
+
+    public Double transactionAmountProperty() {
+        return transaction != null ? transaction.getAmount() : null;
+    }
+
+    public String validatorSignatureProperty() {
+        return validatorSignature;
+    }
+
+    public String timestampProperty() {
+        return timestamp != null ? timestamp.toString() : "";
+    }
 
     public int getBlockId() {
         return blockId;

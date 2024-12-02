@@ -67,6 +67,21 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private TableView<Block> blockTable;
 
     @FXML
+    private TableColumn<Block, Integer> blockIdColumn;
+    @FXML
+    private TableColumn<Block, String> previousHashColumn;
+    @FXML
+    private TableColumn<Block, String> currentHashColumn;
+    @FXML
+    private TableColumn<Block, Integer> transactionIdColumn;
+    @FXML
+    private TableColumn<Block, Double> transactionAmountColumn;
+    @FXML
+    private TableColumn<Block, String> validatorSignatureColumn;
+    @FXML
+    private TableColumn<Block, String> timestampColumn;
+
+    @FXML
     private TableView<Transaction> pendingTransactionsTable;
 
     @FXML
@@ -151,6 +166,14 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             receiverColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().receiverKeyProperty()));
             amountColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().amountProperty()));
             timestampTxColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().createdAtProperty()));
+
+            blockIdColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().idProperty()));
+            previousHashColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().previousHashProperty()));
+            currentHashColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().currentHashProperty()));
+            transactionIdColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().transactionIdProperty()));
+            transactionAmountColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().transactionAmountProperty()));
+            validatorSignatureColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().validatorSignatureProperty()));
+            timestampColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().timestampProperty()));
 
             pendingTransactionsTable.setItems(pendingTransactionsList);
             if (blockchain == null || validator == null) {
