@@ -287,7 +287,6 @@ public class AdminDashboardController {
             transaction.setAmount(adjustmentAmount);
             transaction.setStatus(TransactionStatus.VALIDATED); // Valider automatiquement
             transaction.setCreatedAt(LocalDateTime.now());
-            transactionDAO.saveTransaction(transaction);
             this.admin = userDAO.getAdminFromDatabase(currentUser.getId());
             System.out.println("voici l'admin");
             System.out.println(admin);
@@ -295,6 +294,7 @@ public class AdminDashboardController {
             transaction.setSignature(signature);
             System.out.println("Transaction admin : " + transaction);
             // Ajout du bloc à la blockchain
+            transactionDAO.saveTransaction(transaction);
             blockchain.addBlock(transaction, signature);
 
             // Mise à jour du solde du validateur
