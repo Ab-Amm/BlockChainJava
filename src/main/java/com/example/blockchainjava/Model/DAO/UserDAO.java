@@ -298,6 +298,7 @@ public class UserDAO {
         }
         return null;
     }
+
     public User getUserById(Integer id) {
         String sql = "SELECT * FROM users WHERE id = ?";
 
@@ -401,7 +402,7 @@ public class UserDAO {
                 if (publicKey == null || publicKey.isEmpty()) {
                     System.out.println("public_key is null or empty for user ID: " + rs.getInt("id"));
                 }
-                System.out.println("chno jbna mn bd");
+                System.out.println("validator dans bd");
                 System.out.println(validator);
                 validatorList.add(validator);
             }
@@ -571,5 +572,39 @@ public class UserDAO {
         rs.beforeFirst(); // Revenir au début du ResultSet
         return rowCount;
     }
+    public Admin getAdminFromDatabase(int adminId) {
 
+        // Requête SQL pour récupérer les informations de l'administrateur
+        String sql = "SELECT id, username, role, created_at, password, balance, public_key, private_key, is_connected, last_connection " +
+                "FROM users WHERE id = ? AND role = 'admin'";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            // Remplacer ? par l'ID de l'administrateur
+            statement.setInt(1, adminId);
+
+            // Exécuter la requête et récupérer les résultats
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                // Récupérer les données de l'administrateur depuis le ResultSet
+                int id = resultSet.getInt("id");
+                String username = resultSet.getString("username");
+                String password = resultSet.getString("password");
+                double balance = resultSet.getDouble("balance");
+                String publicKey = resultSet.getString("public_key");
+                String privateKey = resultSet.getString("private_key");
+
+                // Créer et retourner un objet Admin
+                Admin admin = new Admin(id, username, password, balance, publicKey, privateKey);
+                return admin;
+            } else {
+                // Si l'administrateur n'est pas trouvé
+                System.out.println("Aucun administrateur trouvé avec l'ID " + adminId);
+                return null;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

@@ -2,6 +2,9 @@ package com.example.blockchainjava.Model.User;
 
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Model.DAO.UserDAO;
+import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.example.blockchainjava.Util.Security.AuthenticationUtil;
+import com.example.blockchainjava.Util.Security.EncryptionUtil;
 import com.example.blockchainjava.Util.Security.HashUtil;
 
 import java.security.NoSuchAlgorithmException;
@@ -9,12 +12,34 @@ import java.sql.*;
 
 public class Admin extends User {
     int Id ;
+    private String publicKey;
+    private String privateKey;
     public Admin(String username, String password) {
         super(username, password, UserRole.ADMIN);
     }
     public Admin(int Id, String username, String password , Double balance) {
         super(Id , username, password,balance , UserRole.ADMIN);
         this.Id=Id;
+    }
+    public Admin(int Id, String username, String password , Double balance , String pubkickey , String privatekey) {
+        super(Id , username, password,balance , UserRole.ADMIN , pubkickey , privatekey);
+        this.Id=Id;
+        this.privateKey=privatekey;
+        this.publicKey=pubkickey;
+    }
+    public String sign(Transaction transaction ,Admin admin) throws Exception {
+        String transactionData = transaction.toString();
+        System.out.println("l'admin va signer par ce private key");
+        System.out.println(admin.getPrivateKey());
+        return AuthenticationUtil.sign(transactionData, EncryptionUtil.decrypt(privateKey));
+    }
+    public String getPublicKey() {
+        return publicKey;
+    }
+
+    // Getter for privateKey
+    public String getPrivateKey() {
+        return privateKey;
     }
     public int registerValidator(Validator validator, String ipAddress, int port) {
             if (validator == null || ipAddress == null || ipAddress.isEmpty() || port <= 0) {

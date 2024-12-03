@@ -29,6 +29,14 @@ public class Validator extends User {
         //this.validatorAddress = HashUtil.generateAddress(publicKey); // Generate address from public key
         loadValidatorData(id); // Load additional data (ipAddress, port, balance)
     }
+    public Validator(int id , String username ,String Password , double balance) throws NoSuchAlgorithmException {
+        super(id, username ,Password ,balance , UserRole.VALIDATOR);  // Call the parent constructor (User)
+
+        this.isActive = true; // Validator is active by default
+       // generateKeyPair(); // Generate key pair for the validator
+        //this.validatorAddress = HashUtil.generateAddress(publicKey); // Generate address from public key
+        loadValidatorData(id); // Load additional data (ipAddress, port, balance)
+    }
 
     public void loadValidatorData(int id) {
         // Create a UserDAO object to access the database
@@ -180,6 +188,7 @@ public class Validator extends User {
                 ", port=" + port +
                 ", balance=" + getBalance() +
                 ", public key=" + getPublicKey() +
+                ", private key=" + getPrivateKey() +
 //                ", createdAt=" + getCreatedAt() +
                 '}';
     }

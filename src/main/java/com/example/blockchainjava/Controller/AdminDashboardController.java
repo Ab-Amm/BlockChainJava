@@ -22,6 +22,7 @@ import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,7 +86,6 @@ public class AdminDashboardController {
         // Initialiser la ComboBox avec les validateurs existants
         validatorSelectComboBox.setItems(validatorList);
     }
-
     public AdminDashboardController() {
         this.connection = DatabaseConnection.getConnection();
         userDAO = new UserDAO();
@@ -94,7 +94,9 @@ public class AdminDashboardController {
         User currentUser = Session.getCurrentUser();
         if (currentUser != null) {
             int Id = currentUser.getId(); // Get the username from the current user;
-            this.admin = new Admin( Id ,currentUser.getUsername() , currentUser.getPassword() , currentUser.getBalance());
+            this.admin = userDAO.getAdminFromDatabase(Id);
+            System.out.println("voici cle prive de l'admin");
+            System.out.println(admin.getPrivateKey());
         }else {
             System.err.println("No user is currently logged in.");
         }
@@ -286,13 +288,10 @@ public class AdminDashboardController {
             transaction.setStatus(TransactionStatus.VALIDATED); // Valider automatiquement
             transaction.setCreatedAt(LocalDateTime.now());
             transactionDAO.saveTransaction(transaction);
-
-            // Signature de la transaction
-            String dataToSign = transaction.getDataToSign();
-            PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
-            System.out.println("Private key decoded successfully.");
-
-            String signature = generateSignature(transaction, privateKey);
+            this.admin = userDAO.getAdminFromDatabase(currentUser.getId());
+            System.out.println("voici l'admin");
+            System.out.println(admin);
+            String signature = admin.sign(transaction , this.admin);
             transaction.setSignature(signature);
             System.out.println("Transaction admin : " + transaction);
             // Ajout du bloc à la blockchain
