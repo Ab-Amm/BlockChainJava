@@ -5,11 +5,10 @@ import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
-import com.example.blockchainjava.Model.User.Admin;
-import com.example.blockchainjava.Model.User.User;
-import com.example.blockchainjava.Model.User.UserRole;
-import com.example.blockchainjava.Model.User.Validator;
+import com.example.blockchainjava.Model.User.*;
 import com.example.blockchainjava.Util.Network.SocketClient;
+import com.example.blockchainjava.Util.Security.SecurityUtils;
+import com.example.blockchainjava.Model.Block.BlockChain;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -19,9 +18,11 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 
+import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +35,6 @@ public class AdminDashboardController {
     private TextField usernameField;
     @FXML
     private PasswordField passwordField;
-    @FXML
-    private TextField balanceField;
     @FXML
     private TextField ipField;
     @FXML
@@ -76,7 +75,8 @@ public class AdminDashboardController {
     private UserDAO userDAO;
     private ObservableList<Validator> validatorList;
     private final Connection connection;
-
+    private BlockChain blockchain;
+    private TransactionDAO transactionDAO;
 
     @FXML
     public void showEditValidatorForm() {
@@ -89,6 +89,16 @@ public class AdminDashboardController {
     public AdminDashboardController() {
         this.connection = DatabaseConnection.getConnection();
         userDAO = new UserDAO();
+        this.blockchain = new BlockChain();
+        this.transactionDAO = new TransactionDAO();
+        User currentUser = Session.getCurrentUser();
+        if (currentUser != null) {
+            int Id = currentUser.getId(); // Get the username from the current user;
+            this.admin = new Admin( Id ,currentUser.getUsername() , currentUser.getPassword() , currentUser.getBalance());
+        }else {
+            System.err.println("No user is currently logged in.");
+        }
+        System.out.println("this is the admin connected to this dashboard: " + admin);
 
     }
     private List<SocketClient> getValidators() {
@@ -257,25 +267,24 @@ public class AdminDashboardController {
     public void handleAddValidator(ActionEvent actionEvent) {
         String username = usernameField.getText();
         String password = passwordField.getText();
-        String balanceInput = balanceField.getText();
+       // String balanceInput = balanceField.getText();
         String ipAddress = ipField.getText();
         String portInput = portField.getText();
 
-        if (username.isEmpty() || password.isEmpty() || balanceInput.isEmpty() || ipAddress.isEmpty() || portInput.isEmpty()) {
+        if (username.isEmpty() || password.isEmpty() || ipAddress.isEmpty() || portInput.isEmpty()) {
             showErrorMessage("Tous les champs sont obligatoires !");
             return;
         }
 
         try {
-            double balance = Double.parseDouble(balanceInput);
             int port = Integer.parseInt(portInput);
 
             // Création de l'utilisateur et du validateur
             User newUser = new User(username, password, UserRole.VALIDATOR );
-            Validator validator = new Validator(username, password, ipAddress, port , balance);
+            Validator validator = new Validator(username, password, ipAddress, port , 0);
 
             // Enregistrement dans la base de données
-            userDAO.saveUser(newUser, balance);
+            userDAO.saveUser(newUser, 0);
             userDAO.saveValidator(validator, ipAddress, port);
 
             // Rafraîchir la liste
@@ -288,8 +297,19 @@ public class AdminDashboardController {
             e.printStackTrace();
         }
     }
+    public String generateSignature(Transaction transaction, PrivateKey privateKey) {
+        try {
+            // Créer les données à signer (par exemple, l'ID de l'expéditeur et le montant)
+            String dataToSign = Transaction.generateDataToSign(
+                    transaction.getSenderId(), transaction.getReceiverKey(), transaction.getAmount()
+            );
+            // Signer les données avec la clé privée
+            return SecurityUtils.signData(dataToSign, privateKey); // Utiliser la méthode signData avec la clé privée décodée
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating signature", e);
+        }
+    }
 
-    @FXML
     public void handleEditValidator(ActionEvent actionEvent) {
         Validator selectedValidator = validatorSelectComboBox.getSelectionModel().getSelectedItem();
         if (selectedValidator == null) {
@@ -306,12 +326,55 @@ public class AdminDashboardController {
         try {
             double newBalance = Double.parseDouble(newBalanceInput);
 
-            // Mise à jour du solde
+            // Calcul de l'ajustement de balance nécessaire
+            double adjustmentAmount = newBalance - selectedValidator.getBalance();
+            if (adjustmentAmount == 0) {
+                showErrorMessage("Le solde est déjà égal à la valeur saisie.");
+                return;
+            }
+
+            // Vérification du solde de l'admin
+            User currentUser = Session.getCurrentUser();
+            if (currentUser.getBalance() < adjustmentAmount) {
+                showErrorMessage("Le solde de l'administrateur est insuffisant pour effectuer cette transaction.");
+                return;
+            }
+
+            // Création de la transaction
+            Transaction transaction = new Transaction();
+            transaction.setSenderId(currentUser.getId()); // ID de l'admin (émetteur)
+            transaction.setReceiverKey(selectedValidator.getPublicKey()); // Clé publique du validateur
+            transaction.setAmount(adjustmentAmount);
+            transaction.setStatus(TransactionStatus.VALIDATED); // Valider automatiquement
+            transaction.setCreatedAt(LocalDateTime.now());
+            transactionDAO.saveTransaction(transaction);
+
+            // Signature de la transaction
+            String dataToSign = transaction.getDataToSign();
+            PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
+            System.out.println("Private key decoded successfully.");
+
+            String signature = generateSignature(transaction, privateKey);
+            transaction.setSignature(signature);
+
+            // Ajout du bloc à la blockchain
+            blockchain.addBlock(transaction, signature);
+
+            // Mise à jour du solde du validateur
+            selectedValidator.setBalance(selectedValidator.getBalance() + adjustmentAmount);
             userDAO.updateValidatorBalance(selectedValidator, newBalance);
 
-            // Rafraîchir la liste
+            // Mise à jour du solde de l'admin
+            currentUser.setBalance(currentUser.getBalance() - adjustmentAmount);
+            int Id = currentUser.getId(); // Get the username from the current user;
+            this.admin = new Admin( Id ,currentUser.getUsername() , currentUser.getPassword() , currentUser.getBalance());
+            userDAO.updateAdminBalance(admin , currentUser.getBalance() - adjustmentAmount);
+
+            // Rafraîchir l'affichage des validateurs
             updateValidatorList();
-            showInfoMessage("Validateur modifié avec succès !");
+
+            // Afficher un message de succès
+            showInfoMessage("Transaction réussie et solde du validateur mis à jour !");
         } catch (NumberFormatException e) {
             showErrorMessage("Le solde doit être un nombre valide !");
         } catch (Exception e) {
@@ -319,6 +382,8 @@ public class AdminDashboardController {
             e.printStackTrace();
         }
     }
+
+
 
     @FXML
 

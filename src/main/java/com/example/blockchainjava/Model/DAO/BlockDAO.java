@@ -68,7 +68,6 @@ public class BlockDAO {
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                // Create Transaction object with full constructor
                 Transaction transaction = new Transaction(
                         rs.getInt("t.id"),
                         rs.getInt("sender_id"),
@@ -78,11 +77,7 @@ public class BlockDAO {
                         rs.getInt("block_id"),
                         rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : LocalDateTime.now()
                 );
-
-                // Set signature if it exists
                 transaction.setSignature(rs.getString("signature"));
-
-                // Create Block object with the transaction
                 Block block = new Block(
                         rs.getInt("b.id"),
                         rs.getString("previous_hash"),

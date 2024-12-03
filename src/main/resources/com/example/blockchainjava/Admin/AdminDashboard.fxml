@@ -29,7 +29,6 @@
                         <Label text="Ajouter un Validator" style="-fx-font-size: 18;"/>
                         <TextField fx:id="usernameField" promptText="Username" style="-fx-font-size: 14;"/>
                         <PasswordField fx:id="passwordField" promptText="Password" style="-fx-font-size: 14;"/>
-                        <TextField fx:id="balanceField" promptText="Balance" style="-fx-font-size: 14;"/>
                         <TextField fx:id="ipField" promptText="IP Address" style="-fx-font-size: 14;"/>
                         <TextField fx:id="portField" promptText="Port" style="-fx-font-size: 14;"/>
                         <Button text="Ajouter" onAction="#handleAddValidator"

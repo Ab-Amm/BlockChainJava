@@ -1,16 +1,21 @@
 package com.example.blockchainjava.Model.User;
 
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
+import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Util.Security.HashUtil;
 
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 
 public class Admin extends User {
+    int Id ;
     public Admin(String username, String password) {
         super(username, password, UserRole.ADMIN);
     }
-
+    public Admin(int Id, String username, String password , Double balance) {
+        super(Id , username, password,balance , UserRole.ADMIN);
+        this.Id=Id;
+    }
     public int registerValidator(Validator validator, String ipAddress, int port) {
             if (validator == null || ipAddress == null || ipAddress.isEmpty() || port <= 0) {
                 throw new IllegalArgumentException("Invalid arguments provided for registering validator.");
@@ -73,5 +78,17 @@ public class Admin extends User {
                 }
             }
         }
+    public void loadAdminData(int id) {
+        // Create a UserDAO object to access the database
+        UserDAO userDAO = new UserDAO();
+        Admin data = userDAO.getAdminData(id);
+
+        if (data != null) {
+
+            this.Id = data.getId();
+        } else {
+            System.err.println("No data found for the validator with username: " + username);
+        }
+    }
     }
 
