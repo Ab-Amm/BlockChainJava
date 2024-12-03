@@ -4,6 +4,7 @@ import com.example.blockchainjava.Model.Block.Block;
 import com.example.blockchainjava.Model.Block.BlockChain;
 import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.Session;
 import com.example.blockchainjava.Model.User.User;
@@ -41,6 +42,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -904,7 +906,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private User getUserById(Integer userId) {
         return userDAO.getUserById(userId); // Adjust this based on your actual DAO implementation
     }
-
     @FXML
     private void updateClientBalance() {
         // Récupération des données de l'interface utilisateur
@@ -916,8 +917,16 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             return;
         }
 
-        int clientId = Integer.parseInt(clientIdText);
-        double newBalance = Double.parseDouble(balanceText);
+        int clientId;
+        double newBalance;
+
+        try {
+            clientId = Integer.parseInt(clientIdText);
+            newBalance = Double.parseDouble(balanceText);
+        } catch (NumberFormatException e) {
+            showError("Input Error", "Invalid input format. Please enter valid numbers.");
+            return;
+        }
 
         // Validation du solde
         if (newBalance < 0) {
@@ -932,13 +941,75 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             return;
         }
 
-        // Appel au DAO pour mettre à jour la balance
-        boolean success = userDAO.updateUserBalance(user, newBalance); // Mettre à jour le solde
-        if (success) {
-            showSuccess("Balance updated successfully.", "Bravo! The balance has been updated.");
+        // Vérification du solde de l'administrateur
+        User currentUser = Session.getCurrentUser();
+        double adjustmentAmount = newBalance - user.getBalance();
+
+        if (adjustmentAmount > currentUser.getBalance()) {
+            showError("Transaction Error", "Insufficient balance in the administrator's account.");
+            return;
+        }
+
+        // Vérification du solde du validateur
+        if (adjustmentAmount < 0) {
+            // If the adjustment is negative (client balance decreases), check if the validator has enough funds
+            if (Math.abs(adjustmentAmount) > currentUser.getBalance()) {
+                showError("Transaction Error", "Insufficient balance in the validator's account.");
+                return;
+            }
+        }
+
+        // Création de la transaction
+        Transaction transaction = new Transaction();
+        transaction.setSenderId(currentUser.getId());
+        transaction.setReceiverKey(user.getPublicKey()); // Clé publique de l'utilisateur (récepteur)
+        transaction.setAmount(adjustmentAmount);
+        transaction.setStatus(TransactionStatus.VALIDATED); // Valider automatiquement
+        transaction.setCreatedAt(LocalDateTime.now());
+        transactionDAO.saveTransaction(transaction);
+
+        // Signature de la transaction
+        try {
+            String dataToSign = transaction.getDataToSign();
+            PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
+            String signature = generateSignature(transaction, privateKey);
+            transaction.setSignature(signature);
+
+            // Ajouter le bloc à la blockchain
+            blockchain.addBlock(transaction, signature);
+
+            // Mise à jour du solde de l'utilisateur
+            user.setBalance(newBalance);
+            userDAO.updateUserBalance(user, newBalance);
+
+            // Si l'ajustement est négatif, soustraire du solde du validateur
+            if (adjustmentAmount < 0) {
+                Validator validator = (Validator) currentUser; // Assurer que currentUser est un Validator
+                double newValidatorBalance = currentUser.getBalance() + Math.abs(adjustmentAmount);
+                currentUser.setBalance(newValidatorBalance);
+                userDAO.updateValidatorBalance(validator, newValidatorBalance); // Mise à jour du solde du validateur
+            }
+
+            // Afficher un message de succès
+            showSuccess("Balance updated successfully.", "The balance has been updated and the transaction is complete.");
             updateUserTableView(); // Actualisation de la table des utilisateurs
-        } else {
-            showError("Update Error", "Failed to update balance. Please try again.");
+
+        } catch (Exception e) {
+            showError("Transaction Error", "An error occurred during the transaction process.");
+            e.printStackTrace();
+        }
+    }
+
+    public String generateSignature(Transaction transaction, PrivateKey privateKey) {
+        try {
+            // Créer les données à signer (par exemple, l'ID de l'expéditeur et le montant)
+            String dataToSign = Transaction.generateDataToSign(
+                    transaction.getSenderId(), transaction.getReceiverKey(), transaction.getAmount()
+            );
+            // Signer les données avec la clé privée
+            return SecurityUtils.signData(dataToSign, privateKey); // Utiliser la méthode signData avec la clé privée décodée
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating signature", e);
         }
     }
 
