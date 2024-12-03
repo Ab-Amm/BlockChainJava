@@ -19,7 +19,7 @@ public class BlockChain {
     private final BlockDAO blockDAO;
     private final List<BlockchainUpdateObserver> observers;
     private final Connection connection;
-    private void loadChainFromDatabase() {
+    public void loadChainFromDatabase() {
         List<Block> blocksFromDB = blockDAO.getAllBlocks();
         chain.addAll(blocksFromDB);
     }

@@ -388,14 +388,21 @@ public class UserDAO {
             while (rs.next()) {
                 // Create a Validator object from the database result
                 Validator validator = new Validator(
+                        rs.getInt("id"),
                         rs.getString("username"),
                         rs.getString("password"),
-                        rs.getDouble("balance")
+                        rs.getDouble("balance") ,
+                        rs.getString("public_key"),
+                        rs.getString("private_key")
                 );
-                // Set other properties if needed
-                validator.setPublicKey(rs.getString("public_key"));
-                validator.setPrivateKey(EncryptionUtil.decrypt(rs.getString("private_key")));
-                // Add the Validator to the list
+                String publicKey = rs.getString("public_key");
+                System.out.println("Raw public_key from DB for user ID " + rs.getInt("id") + ": " + publicKey);
+
+                if (publicKey == null || publicKey.isEmpty()) {
+                    System.out.println("public_key is null or empty for user ID: " + rs.getInt("id"));
+                }
+                System.out.println("chno jbna mn bd");
+                System.out.println(validator);
                 validatorList.add(validator);
             }
         } catch (SQLException e) {

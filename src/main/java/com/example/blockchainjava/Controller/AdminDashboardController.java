@@ -101,26 +101,6 @@ public class AdminDashboardController {
         System.out.println("this is the admin connected to this dashboard: " + admin);
 
     }
-    private List<SocketClient> getValidators() {
-        List<SocketClient> validators = new ArrayList<>();
-        String sql = "SELECT ip_address, port FROM validators"; // Table 'validators' avec colonnes 'ip_address' et 'port'
-
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-
-            while (rs.next()) {
-                String ip = rs.getString("ip_address");
-                int port = rs.getInt("port");
-                validators.add(new SocketClient(ip, port));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("Error fetching validators from database: " + e.getMessage());
-        }
-
-        return validators;
-    }
-
 
     public void setAdmin(Admin admin) {
         this.admin = admin;
@@ -161,8 +141,6 @@ public class AdminDashboardController {
 
     private void loadTransactionHistory() {
         TransactionDAO transactionDAO = new TransactionDAO();
-
-
         try {
             // Récupérer toutes les transactions avec les noms des expéditeurs et destinataires
             List<Map<String, Object>> transactions = transactionDAO.getAllTransactions();
@@ -298,6 +276,9 @@ public class AdminDashboardController {
             }
 
             // Création de la transaction
+            updateValidatorList();
+            System.out.println("les validators");
+            System.out.println(validatorList);
             Transaction transaction = new Transaction();
             transaction.setSenderId(currentUser.getId()); // ID de l'admin (émetteur)
             transaction.setReceiverKey(selectedValidator.getPublicKey()); // Clé publique du validateur

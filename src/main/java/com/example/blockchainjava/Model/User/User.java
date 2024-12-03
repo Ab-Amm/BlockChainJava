@@ -39,6 +39,15 @@ public class User {
         this.balance=balance;
         this.role = role;
     }
+    public User(int id ,String username , String password, double balance ,UserRole role , String publicKey ,String privateKey){
+        this.id=id;
+        this.username=username;
+        this.password=password;
+        this.balance=balance;
+        this.role = role;
+        this.privateKey=privateKey;
+        this.publicKey=publicKey;
+    }
     public User(String username, String password, UserRole role) {
         this.id=incrementExact(getId());
         this.username = username;

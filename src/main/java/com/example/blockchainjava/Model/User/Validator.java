@@ -70,6 +70,14 @@ public class Validator extends User {
         generateKeyPair();
         //this.validatorAddress = HashUtil.generateAddress(publicKey);
     }
+    public Validator(int id,String username, String password , double balance , String publicKey , String privateKey) throws NoSuchAlgorithmException {
+        super(id , username, password,balance, UserRole.VALIDATOR ,publicKey ,privateKey);
+        // this.balance = balance; // Default balance is 0
+        this.isActive = true; // Validators are active by default
+        //this.validatorAddress = HashUtil.generateAddress(publicKey);
+        this.publicKey=publicKey;
+        this.privateKey=privateKey;
+    }
     public Validator(String username, String password, String ipAddress, int port) throws NoSuchAlgorithmException {
         this(username, password);
         //this.validatorAddress = HashUtil.generateAddress(publicKey);// Appel au constructeur principal
@@ -171,6 +179,7 @@ public class Validator extends User {
                 ", ipAddress='" + ipAddress + '\'' +
                 ", port=" + port +
                 ", balance=" + getBalance() +
+                ", public key=" + getPublicKey() +
 //                ", createdAt=" + getCreatedAt() +
                 '}';
     }
