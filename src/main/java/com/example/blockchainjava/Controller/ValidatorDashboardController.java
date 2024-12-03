@@ -423,6 +423,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                     addTransactionToBlockchain(transaction);
                 } else {
                     System.out.println("Block will be created by validator with latest timestamp");
+                    updateBlockchainView();
                 }
             } else {
                 int remainingValidators = getRequiredValidatorCount() - validators.size();
@@ -492,7 +493,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             System.out.println("Transaction " + transaction.getId() + " successfully added to the blockchain.");
 
             // Broadcast the new block to other validators
-            broadcastNewBlock(transaction, signature);
+//            broadcastNewBlock(transaction, signature);
+            updateBlockchainView();
 
             // Clean up the validation votes for this transaction
             transactionValidatorVotes.remove(transaction.getId());

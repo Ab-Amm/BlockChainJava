@@ -5,6 +5,7 @@ import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -73,9 +74,9 @@ public class BlockDAO {
                         rs.getInt("sender_id"),
                         rs.getString("receiver_key"),
                         rs.getDouble("amount"),
-                        TransactionStatus.valueOf(rs.getString("status")),
+                        rs.getString("status") != null ? TransactionStatus.valueOf(rs.getString("status")) : TransactionStatus.PENDING,
                         rs.getInt("block_id"),
-                        rs.getTimestamp("created_at").toLocalDateTime()
+                        rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : LocalDateTime.now()
                 );
 
                 // Set signature if it exists
@@ -90,7 +91,7 @@ public class BlockDAO {
                 );
                 block.setBlockId(rs.getInt("id"));
                 block.setCurrentHash(rs.getString("current_hash"));
-                block.setTimestamp(rs.getTimestamp("timestamp").toLocalDateTime());
+                block.setTimestamp(rs.getTimestamp("timestamp") != null ? rs.getTimestamp("timestamp").toLocalDateTime() : LocalDateTime.now());
 
                 blocks.add(block);
             }
