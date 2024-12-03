@@ -90,5 +90,15 @@ public class Admin extends User {
             System.err.println("No data found for the validator with username: " + username);
         }
     }
+    @Override
+    public String toString() {
+        return "Admin{" +
+                "id=" + getId() +
+                ", username='" + getUsername() + '\'' +
+                ", balance=" + getBalance() +
+//                ", createdAt=" + getCreatedAt() +
+                '}';
     }
+
+}
 

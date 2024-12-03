@@ -120,56 +120,10 @@ public class AdminDashboardController {
 
         return validators;
     }
-    public void broadcastPendingTransactions() {
-        TransactionDAO transactionDAO = new TransactionDAO(); // Créez une instance de TransactionDAO
-
-        // Récupérer les transactions avec le statut PENDING
-        List<Transaction> pendingTransactions = transactionDAO.getTransactionsByStatus(TransactionStatus.PENDING);
-
-        for (Transaction transaction : pendingTransactions) {
-            for (SocketClient validator : getValidators()) {
-                try {
-                    // Établir une connexion avec le validateur
-                    validator.connect();
-
-                    // Envoyer la transaction au validateur
-                    validator.sendTransaction(transaction);
-
-                    // Recevoir la réponse du validateur
-                    String response = validator.receiveResponse();
-
-                    // Mettre à jour le statut de la transaction en fonction de la réponse
-                    if ("ACCEPTED".equals(response)) {
-                        transaction.setStatus(TransactionStatus.VALIDATED);
-                    } else {
-                        transaction.setStatus(TransactionStatus.REJECTED);
-                    }
-
-                    validator.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    // En cas d'échec, rejeter la transaction
-                    transaction.setStatus(TransactionStatus.REJECTED);
-                } finally {
-                    // Mettre à jour la transaction dans la base de données
-                    transactionDAO.updateTransaction(transaction);
-                }
-            }
-        }
-    }
 
 
     public void setAdmin(Admin admin) {
         this.admin = admin;
-    }
-
-    private List<String> getValidatorsFromDatabase() {
-        // Exemple de récupération depuis la base de données
-        // Vous devrez adapter cette méthode pour correspondre à votre modèle de données
-        List<String> validators = new ArrayList<>();
-        // Ajoutez votre logique pour récupérer les validateurs ici
-        // Par exemple : `validators.add(validator.getUsername());`
-        return validators;
     }
 
     @FXML
@@ -188,6 +142,9 @@ public class AdminDashboardController {
                 new SimpleStringProperty(cellData.getValue().get("createdAt").toString()));
 
         // Configuration du nom de l'administrateur
+        ObservableList<Map<String, Object>> transactionList = FXCollections.observableArrayList(transactionDAO.getAllTransactions());
+        transactionTable.setItems(transactionList);
+        transactionTable.refresh();
         loadTransactionHistory();
         if (admin != null) {
             adminNameLabel.setText(admin.getUsername());
@@ -356,7 +313,7 @@ public class AdminDashboardController {
 
             String signature = generateSignature(transaction, privateKey);
             transaction.setSignature(signature);
-
+            System.out.println("Transaction admin : " + transaction);
             // Ajout du bloc à la blockchain
             blockchain.addBlock(transaction, signature);
 
@@ -364,17 +321,16 @@ public class AdminDashboardController {
             selectedValidator.setBalance(selectedValidator.getBalance() + adjustmentAmount);
             userDAO.updateValidatorBalance(selectedValidator, newBalance);
 
-            // Mise à jour du solde de l'admin
-            currentUser.setBalance(currentUser.getBalance() - adjustmentAmount);
             int Id = currentUser.getId(); // Get the username from the current user;
             this.admin = new Admin( Id ,currentUser.getUsername() , currentUser.getPassword() , currentUser.getBalance());
             userDAO.updateAdminBalance(admin , currentUser.getBalance() - adjustmentAmount);
 
-            // Rafraîchir l'affichage des validateurs
+            currentUser.setBalance(currentUser.getBalance() - adjustmentAmount);
             updateValidatorList();
 
             // Afficher un message de succès
             showInfoMessage("Transaction réussie et solde du validateur mis à jour !");
+            loadTransactionHistory();
         } catch (NumberFormatException e) {
             showErrorMessage("Le solde doit être un nombre valide !");
         } catch (Exception e) {

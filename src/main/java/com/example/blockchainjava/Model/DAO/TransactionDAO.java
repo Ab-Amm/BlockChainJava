@@ -243,8 +243,6 @@ public class TransactionDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-
         return transactions;
     }
 

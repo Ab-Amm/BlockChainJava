@@ -64,7 +64,7 @@ public class Validator extends User {
         //this.validatorAddress = HashUtil.generateAddress(publicKey);
     }
     public Validator(String username, String password , double balance) throws NoSuchAlgorithmException {
-        super(username, password, UserRole.VALIDATOR);
+        super(username, password,balance, UserRole.VALIDATOR);
        // this.balance = balance; // Default balance is 0
         this.isActive = true; // Validators are active by default
         generateKeyPair();
@@ -170,7 +170,7 @@ public class Validator extends User {
                 ", isActive=" + isActive +
                 ", ipAddress='" + ipAddress + '\'' +
                 ", port=" + port +
-//                ", balance=" + balance +
+                ", balance=" + getBalance() +
 //                ", createdAt=" + getCreatedAt() +
                 '}';
     }

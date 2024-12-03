@@ -33,6 +33,12 @@ public class User {
         this.balance=balance;
         this.role = role;
     }
+    public User(String username , String password, double balance ,UserRole role){
+        this.username=username;
+        this.password=password;
+        this.balance=balance;
+        this.role = role;
+    }
     public User(String username, String password, UserRole role) {
         this.id=incrementExact(getId());
         this.username = username;
