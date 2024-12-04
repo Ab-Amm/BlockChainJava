@@ -352,7 +352,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                     throw new SecurityException("Invalid signature.");
                 }
 
-                User sender = getUserById(selectedTransaction.senderIdProperty());
+                Client sender = getUserById(selectedTransaction.senderIdProperty());
                 if (sender == null || sender.getBalance() < selectedTransaction.getAmount()) {
                     throw new IllegalArgumentException("Invalid sender or insufficient balance.");
                 }
@@ -903,11 +903,11 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private String getSenderPublicKey(String senderId) {
         // Retrieve the sender's public key from the user database
-        User sender = getUserById(Integer.valueOf(senderId));
+        Client sender = getUserById(Integer.valueOf(senderId));
         return sender != null ? sender.getPublicKey() : null;
     }
-    private User getUserById(Integer userId) {
-        return userDAO.getUserById(userId); // Adjust this based on your actual DAO implementation
+    private Client getUserById(int userId) {
+        return userDAO.getClientFromDatabase(userId); // Adjust this based on your actual DAO implementation
     }
     @FXML
     private void updateClientBalance() {
