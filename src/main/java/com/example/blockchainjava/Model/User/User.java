@@ -116,6 +116,7 @@ public class User {
 
                 ", role=" + role +
                 ", createdAt=" + createdAt +
+                ", balance=" + balance +
                 '}';
     }
 

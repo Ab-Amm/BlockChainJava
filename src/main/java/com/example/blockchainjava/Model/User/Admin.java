@@ -28,10 +28,12 @@ public class Admin extends User {
         this.publicKey=pubkickey;
     }
     public String sign(Transaction transaction ,Admin admin) throws Exception {
-        String transactionData = transaction.toString();
+        String dataToSign = Transaction.generateDataToSign(
+                transaction.getSenderId(), transaction.getReceiverKey(), transaction.getAmount()
+        );
         System.out.println("l'admin va signer par ce private key");
         System.out.println(admin.getPrivateKey());
-        return AuthenticationUtil.sign(transactionData, EncryptionUtil.decrypt(privateKey));
+        return AuthenticationUtil.sign(dataToSign, EncryptionUtil.decrypt(privateKey));
     }
     public String getPublicKey() {
         return publicKey;

@@ -94,9 +94,8 @@ public class TransactionFormController {
 
             String signature = client.sign(transaction , this.client);
             transaction.setSignature(signature);
-
             System.out.println("Transaction signed: " + transaction);
-
+            System.out.println("Data used for signing: " + transaction.getDataToSign());
             // Save the transaction in the database with status PENDING
             transactionDAO.saveTransaction(transaction);
             System.out.println("Transaction saved in database.");

@@ -347,12 +347,14 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                         selectedTransaction.getSignature(),
                         senderPublicKey
                 );
-
+                System.out.println("Data used for validation: " + selectedTransaction.getDataToSign());
                 if (!isSignatureValid) {
                     throw new SecurityException("Invalid signature.");
                 }
 
                 Client sender = getUserById(selectedTransaction.senderIdProperty());
+                System.out.println("this is the sender : ");
+                System.out.println(sender);
                 if (sender == null || sender.getBalance() < selectedTransaction.getAmount()) {
                     throw new IllegalArgumentException("Invalid sender or insufficient balance.");
                 }
@@ -904,6 +906,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private String getSenderPublicKey(String senderId) {
         // Retrieve the sender's public key from the user database
         Client sender = getUserById(Integer.valueOf(senderId));
+        System.out.println("voici le le cle public de sender :");
+        System.out.println(sender.getPublicKey());
         return sender != null ? sender.getPublicKey() : null;
     }
     private Client getUserById(int userId) {
