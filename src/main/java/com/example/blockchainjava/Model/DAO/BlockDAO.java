@@ -68,6 +68,10 @@ public class BlockDAO {
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
+                // Récupérer les données de la transaction avec gestion des valeurs nulles
+                Timestamp createdAtTimestamp = rs.getTimestamp("created_at");
+                LocalDateTime createdAt = createdAtTimestamp != null ? createdAtTimestamp.toLocalDateTime() : LocalDateTime.now();
+
                 Transaction transaction = new Transaction(
                         rs.getInt("t.id"),
                         rs.getInt("sender_id"),
@@ -75,24 +79,37 @@ public class BlockDAO {
                         rs.getDouble("amount"),
                         rs.getString("status") != null ? TransactionStatus.valueOf(rs.getString("status")) : TransactionStatus.PENDING,
                         rs.getInt("block_id"),
-                        rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toLocalDateTime() : LocalDateTime.now()
+                        createdAt
                 );
                 transaction.setSignature(rs.getString("signature"));
+
+                // Récupérer les données du bloc avec gestion des valeurs nulles
+                Timestamp blockTimestamp = rs.getTimestamp("timestamp");
+                LocalDateTime blockTimestampConverted = blockTimestamp != null ? blockTimestamp.toLocalDateTime() : LocalDateTime.now();
+
                 Block block = new Block(
                         rs.getInt("b.id"),
                         rs.getString("previous_hash"),
                         transaction,
-                        rs.getString("validator_signature")
+                        rs.getString("validator_signature"),
+                        blockTimestampConverted,
+                        rs.getString("current_hash")
                 );
                 block.setBlockId(rs.getInt("id"));
                 block.setCurrentHash(rs.getString("current_hash"));
-                block.setTimestamp(rs.getTimestamp("timestamp") != null ? rs.getTimestamp("timestamp").toLocalDateTime() : LocalDateTime.now());
+                block.setTimestamp(blockTimestampConverted);
 
                 blocks.add(block);
+                System.out.println("voici les blocks récupérés :");
+                System.out.println(blocks);
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to load blocks", e);
         }
+
+        System.out.println("voici les blocks récupérés :");
+        System.out.println(blocks);
         return blocks;
     }
+
 }

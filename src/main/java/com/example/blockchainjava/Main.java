@@ -33,7 +33,12 @@ public class Main extends Application {
     public static void main(String[] args) {
         // Initialize database connection
         DatabaseConnection.getConnection();
-
+        BlockChain blockChain = new BlockChain();
+        boolean isBlockchainValid = blockChain.verifyBlockchain();
+        if (!isBlockchainValid) {
+            System.err.println("La blockchain est invalide. Vérifiez les données avant de continuer.");
+            System.exit(1); // Arrêter l'application si la blockchain est invalide
+        }
 
         // Start the application
         launch(args);

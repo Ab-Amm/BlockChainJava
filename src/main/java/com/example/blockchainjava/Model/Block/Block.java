@@ -3,6 +3,7 @@ package com.example.blockchainjava.Model.Block;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Util.Security.HashUtil;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 public class Block {
@@ -23,14 +24,35 @@ public class Block {
         this.validatorSignature = validatorSignature;
         this.currentHash = calculateHash();
     }
+    public Block(int blockId , String previousHash, Transaction transaction, String validatorSignature , LocalDateTime timestamp , String currentHash) {
+        this.blockId=blockId;
+        this.previousHash = previousHash;
+        this.transaction = transaction;
+        this.timestamp = timestamp;
+        this.validatorSignature = validatorSignature;
+        this.currentHash = currentHash;
+    }
 
-    private String calculateHash() {
-        return HashUtil.sha256(
+
+    public String calculateHash() {
+        // Convertir LocalDateTime en Timestamp
+        Timestamp timestampAsTimestamp = Timestamp.valueOf(timestamp);
+
+        // Afficher les valeurs pour débogage
+        System.out.println("Previous Hash: " + previousHash);
+        System.out.println("Transaction ID: " + transaction.getId());
+        //System.out.println("Timestamp: " + timestampAsTimestamp.toString());
+        System.out.println("Validator Signature: " + validatorSignature);
+
+        // Calculer le hash
+        String calculatedHash = HashUtil.sha256(
                 previousHash +
                         transaction.getId() +
-                        timestamp.toString() +
                         validatorSignature
         );
+
+        System.out.println("Calculated Hash: " + calculatedHash);
+        return calculatedHash;
     }
 
     // Property methods for TableView
@@ -109,4 +131,16 @@ public class Block {
     public void setValidatorSignature(String validatorSignature) {
         this.validatorSignature = validatorSignature;
     }
+    @Override
+    public String toString() {
+        return "Block{" +
+                "blockId=" + blockId +
+                ", previousHash='" + previousHash + '\'' +
+                ", currentHash='" + currentHash + '\'' +
+                ", transaction=" + (transaction != null ? transaction.toString() : "null") +
+                ", timestamp=" + (timestamp != null ? timestamp.toString() : "null") +
+                ", validatorSignature='" + validatorSignature + '\'' +
+                '}';
+    }
+
 }

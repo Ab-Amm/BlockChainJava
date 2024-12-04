@@ -285,8 +285,7 @@ public class AdminDashboardController {
             transaction.setSenderId(currentUser.getId()); // ID de l'admin (émetteur)
             transaction.setReceiverKey(selectedValidator.getPublicKey()); // Clé publique du validateur
             transaction.setAmount(adjustmentAmount);
-            transaction.setStatus(TransactionStatus.VALIDATED); // Valider automatiquement
-            transaction.setCreatedAt(LocalDateTime.now());
+            transaction.setStatus(TransactionStatus.VALIDATED);
             this.admin = userDAO.getAdminFromDatabase(currentUser.getId());
             System.out.println("voici l'admin");
             System.out.println(admin);

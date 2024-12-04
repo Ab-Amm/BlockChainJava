@@ -117,7 +117,30 @@ public class TransactionDAO {
 
 
 
+    public List<Transaction> getTransactionsByBlockId(int blockId) throws SQLException {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql = "SELECT id, sender_id, receiver_key, amount, status, block_id, created_at, signature " +
+                "FROM transactions WHERE block_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, blockId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Transaction transaction = new Transaction();
+                    transaction.setId(rs.getInt("id"));
+                    transaction.setSenderId(rs.getInt("sender_id"));
+                    transaction.setReceiverKey(rs.getString("receiver_key"));
+                    transaction.setAmount(rs.getDouble("amount"));
+                    transaction.setStatus(TransactionStatus.valueOf(rs.getString("status")));
+                    transaction.setBlockId(rs.getInt("block_id"));
+                    transaction.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+                    transaction.setSignature(rs.getString("signature"));
 
+                    transactions.add(transaction);
+                }
+            }
+        }
+        return transactions;
+    }
 
     // Sauvegarder une transaction
     public void saveTransaction(Transaction transaction) {

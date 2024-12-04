@@ -653,4 +653,20 @@ public class UserDAO {
             return null;
         }
     }
+    public String getPublicKeyByUserId(int userId) throws SQLException {
+        String publicKey = null;
+        String sql = "SELECT public_key FROM users WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    publicKey = rs.getString("public_key");
+                }
+            }
+        }
+        if (publicKey == null) {
+            throw new IllegalArgumentException("No public key found for user with ID: " + userId);
+        }
+        return publicKey;
+    }
 }
