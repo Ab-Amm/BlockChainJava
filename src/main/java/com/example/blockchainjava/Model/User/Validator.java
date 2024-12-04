@@ -3,6 +3,7 @@ package com.example.blockchainjava.Model.User;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Util.Security.AuthenticationUtil;
+import com.example.blockchainjava.Util.Security.EncryptionUtil;
 import com.example.blockchainjava.Util.Security.HashUtil;
 
 import java.security.KeyPair;
@@ -78,11 +79,14 @@ public class Validator extends User {
         generateKeyPair();
         //this.validatorAddress = HashUtil.generateAddress(publicKey);
     }
-    public Validator(int id,String username, String password , double balance , String publicKey , String privateKey) throws NoSuchAlgorithmException {
+    public Validator(int id,String username, String password , double balance , String publicKey , String privateKey , String ipAddress , int port) throws NoSuchAlgorithmException {
         super(id , username, password,balance, UserRole.VALIDATOR ,publicKey ,privateKey);
         // this.balance = balance; // Default balance is 0
         this.isActive = true; // Validators are active by default
         //this.validatorAddress = HashUtil.generateAddress(publicKey);
+        this.isActive = true;
+        this.ipAddress = ipAddress;
+        this.port = port;
         this.publicKey=publicKey;
         this.privateKey=privateKey;
     }
@@ -116,12 +120,12 @@ public class Validator extends User {
         this.publicKey = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
     }
 
-    // Sign a transaction using the private key
-    public String sign(Transaction transaction) {
+    public String sign(Transaction transaction ,Validator validator) throws Exception {
         String transactionData = transaction.toString();
-        return AuthenticationUtil.sign(transactionData, privateKey);
+        System.out.println("le validator va signer par ce private key");
+        System.out.println(validator.getPrivateKey());
+        return AuthenticationUtil.sign(transactionData, EncryptionUtil.decrypt(privateKey));
     }
-
     // Getter for balance
 //    public double getBalance() {
 //        return balance;

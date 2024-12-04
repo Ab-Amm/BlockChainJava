@@ -103,18 +103,6 @@ public class Admin extends User {
                 }
             }
         }
-    public void loadAdminData(int id) {
-        // Create a UserDAO object to access the database
-        UserDAO userDAO = new UserDAO();
-        Admin data = userDAO.getAdminData(id);
-
-        if (data != null) {
-
-            this.Id = data.getId();
-        } else {
-            System.err.println("No data found for the validator with username: " + username);
-        }
-    }
     @Override
     public String toString() {
         return "Admin{" +

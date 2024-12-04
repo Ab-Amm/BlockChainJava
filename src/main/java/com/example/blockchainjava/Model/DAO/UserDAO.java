@@ -382,7 +382,7 @@ public class UserDAO {
 
     public List<Validator> getValidators() {
         List<Validator> validatorList = new ArrayList<>();
-        String sql = "SELECT * FROM users WHERE role = 'VALIDATOR'";  // Adjust query based on your database schema
+        String sql = "SELECT * FROM users JOIN validators ON users.id=validators.id WHERE role = 'VALIDATOR'";  // Adjust query based on your database schema
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             ResultSet rs = stmt.executeQuery();
@@ -394,7 +394,9 @@ public class UserDAO {
                         rs.getString("password"),
                         rs.getDouble("balance") ,
                         rs.getString("public_key"),
-                        rs.getString("private_key")
+                        rs.getString("private_key"),
+                        rs.getString("ip_address"),
+                        rs.getInt("port")
                 );
                 String publicKey = rs.getString("public_key");
                 System.out.println("Raw public_key from DB for user ID " + rs.getInt("id") + ": " + publicKey);
@@ -576,7 +578,7 @@ public class UserDAO {
 
         // Requête SQL pour récupérer les informations de l'administrateur
         String sql = "SELECT id, username, role, created_at, password, balance, public_key, private_key, is_connected, last_connection " +
-                "FROM users WHERE id = ? AND role = 'admin'";
+                "FROM users WHERE id = ? AND role = 'ADMIN'";
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             // Remplacer ? par l'ID de l'administrateur
@@ -603,6 +605,43 @@ public class UserDAO {
                 return null;
             }
         } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    public Validator getValidatorFromDatabase(int validatorId) {
+
+        // Requête SQL pour récupérer les informations de l'administrateur
+        String sql = "SELECT u.id, u.username, u.role, u.created_at, u.password, u.balance, u.public_key, " +
+                "u.private_key, u.is_connected, u.last_connection, v.ip_address, v.port " +
+                "FROM users u JOIN validators v ON u.id = v.id WHERE u.id = ? AND u.role = 'VALIDATOR'";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            // Remplacer ? par l'ID de l'administrateur
+            statement.setInt(1, validatorId);
+
+            // Exécuter la requête et récupérer les résultats
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                // Récupérer les données de l'administrateur depuis le ResultSet
+                int id = resultSet.getInt("id");
+                String username = resultSet.getString("username");
+                String password = resultSet.getString("password");
+                double balance = resultSet.getDouble("balance");
+                String publicKey = resultSet.getString("public_key");
+                String privateKey = resultSet.getString("private_key");
+                String ipaddress = resultSet.getString("ip_address");
+                int port =resultSet.getInt("port");
+                // Créer et retourner un objet Admin
+                Validator validator = new Validator(id, username, password, balance, publicKey, privateKey , ipaddress , port);
+                return validator;
+            } else {
+                // Si l'administrateur n'est pas trouvé
+                System.out.println("Aucun administrateur trouvé avec l'ID " + validatorId);
+                return null;
+            }
+        } catch (SQLException | NoSuchAlgorithmException e) {
             e.printStackTrace();
             return null;
         }

@@ -139,13 +139,15 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         User currentUser = Session.getCurrentUser();
         if (currentUser != null) {
             int Id = currentUser.getId(); // Get the username from the current user;
-            this.validator = new Validator(Id , currentUser.getUsername() , currentUser.getBalance());
+            this.validator = userDAO.getValidatorFromDatabase(Id);
+            System.out.println("voici cle prive de validator");
+            System.out.println(validator.getPrivateKey());
         }else {
             System.err.println("No user is currently logged in.");
         }
         this.connection = DatabaseConnection.getConnection();
         System.out.println("this is the validator connected to this dashboard: " + validator);
-        this.validator.loadValidatorData(currentUser.getId());
+        this.validator = userDAO.getValidatorFromDatabase(currentUser.getId());
 
         // Add shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -487,8 +489,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private void addTransactionToBlockchain(Transaction transaction) {
         try {
             System.out.println("Adding transaction " + transaction.getId() + " to the blockchain...");
-
-            String signature = validator.sign(transaction);
+            User currentUser = Session.getCurrentUser();
+            this.validator = userDAO.getValidatorFromDatabase(currentUser.getId());
+            String signature = validator.sign(transaction , this.validator);
             System.out.println("Signature: " + signature);
             blockchain.addBlock(transaction, signature);
             updateBlockchainView();
