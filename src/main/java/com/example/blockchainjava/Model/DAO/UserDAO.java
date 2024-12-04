@@ -646,4 +646,39 @@ public class UserDAO {
             return null;
         }
     }
+    public Client getClientFromDatabase(int clientId) {
+
+        // Requête SQL pour récupérer les informations de l'administrateur
+        String sql = "SELECT id, username, role, created_at, password, balance, public_key, private_key, is_connected, last_connection " +
+                "FROM users WHERE id = ? AND role = 'CLIENT'";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            // Remplacer ? par l'ID de l'administrateur
+            statement.setInt(1, clientId);
+
+            // Exécuter la requête et récupérer les résultats
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                // Récupérer les données de l'administrateur depuis le ResultSet
+                int id = resultSet.getInt("id");
+                String username = resultSet.getString("username");
+                String password = resultSet.getString("password");
+                double balance = resultSet.getDouble("balance");
+                String publicKey = resultSet.getString("public_key");
+                String privateKey = resultSet.getString("private_key");
+
+                // Créer et retourner un objet Admin
+                Client client = new Client(id, username, password, balance, publicKey, privateKey);
+                return client;
+            } else {
+                // Si l'administrateur n'est pas trouvé
+                System.out.println("Aucun client trouvé avec l'ID " + clientId);
+                return null;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

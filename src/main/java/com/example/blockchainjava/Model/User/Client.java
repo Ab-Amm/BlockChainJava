@@ -2,6 +2,8 @@ package com.example.blockchainjava.Model.User;
 
 import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.example.blockchainjava.Util.Security.AuthenticationUtil;
+import com.example.blockchainjava.Util.Security.EncryptionUtil;
 import javafx.beans.property.*;
 
 import java.util.ArrayList;
@@ -10,14 +12,38 @@ import java.util.List;
 public class Client extends User {
     private double balance;
     private List<Transaction> transactions;
+    private String publicKey;
+    private String privateKey ;
     private int id;
-
+    public Client(int Id, String username, String password , Double balance , String pubkickey , String privatekey) {
+        super(Id , username, password,balance , UserRole.CLIENT , pubkickey , privatekey);
+        this.id=Id;
+        this.privateKey=privatekey;
+        this.publicKey=pubkickey;
+    }
     public Client(String username, String password) {
         super(username, password, UserRole.CLIENT);
         this.balance = 0.0;
         this.transactions = new ArrayList<>();
     }
-    public Client(int id ,String username, String password , Double balance) {
+    public String sign(Transaction transaction ,Client client) throws Exception {
+        String transactionData = transaction.toString();
+        System.out.println("le client  va signer par ce private key");
+        System.out.println(client.getPrivateKey());
+        return AuthenticationUtil.sign(transactionData, EncryptionUtil.decrypt(privateKey));
+    }
+
+    @Override
+    public String getPrivateKey() {
+        return privateKey;
+    }
+
+    @Override
+    public String getPublicKey() {
+        return publicKey;
+    }
+
+    public Client(int id , String username, String password , Double balance) {
         super(username, password, UserRole.CLIENT);
         this.id=id;
         this.balance = balance;

@@ -4,10 +4,7 @@ import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.DAO.TransactionDAO; // Classe pour récupérer les transactions depuis la base de données.
-import com.example.blockchainjava.Model.User.Client;
-import com.example.blockchainjava.Model.User.Session;
-import com.example.blockchainjava.Model.User.User;
-import com.example.blockchainjava.Model.User.Validator;
+import com.example.blockchainjava.Model.User.*;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -68,13 +65,13 @@ public class ClientDashboardController {
         if (currentUser != null) {
             int Id = currentUser.getId();// Get the username from the current user;
             System.out.println(Id);
-            this.client = new Client(Id , currentUser.getUsername() , currentUser.getBalance());
+            this.client = userDAO.getClientFromDatabase(Id);
         }else {
             System.err.println("No user is currently logged in.");
         }
         this.connection = DatabaseConnection.getConnection();
-        System.out.println("this is the validator connected to this dashboard: " + client);
-        this.client.loadClientData(currentUser.getId());
+        System.out.println("this is the CLIENT connected to this dashboard: " + client);
+        this.client = userDAO.getClientFromDatabase(currentUser.getId());
 
         // Add shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -85,6 +82,8 @@ public class ClientDashboardController {
     }
     @FXML
     public void initialize() {
+        User currentUser = Session.getCurrentUser();
+        this.client = userDAO.getClientFromDatabase(currentUser.getId());
         System.out.println(client.getId());
         userDAO.updateUserConnection(client.getId(), true);
         receiverColumn.setCellValueFactory(cellData -> {

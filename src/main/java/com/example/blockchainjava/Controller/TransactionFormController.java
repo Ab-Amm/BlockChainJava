@@ -2,6 +2,7 @@ package com.example.blockchainjava.Controller;
 
 import com.example.blockchainjava.Model.DAO.TransactionDAO;
 import com.example.blockchainjava.Model.DAO.UserDAO;
+import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Util.Network.SocketClient;
@@ -29,12 +30,16 @@ public class TransactionFormController {
     private TextField amountField;
     private TransactionDAO transactionDAO;
     private final Connection connection;
-
+    private UserDAO userDAO;
+    private Client client;
     // Default constructor for FXML
     public TransactionFormController() {
         // Initialize the database connection
         this.connection = DatabaseConnection.getConnection();
         transactionDAO = new TransactionDAO();
+        User currentUser = Session.getCurrentUser();
+        this.userDAO = new UserDAO();
+        this.client = userDAO.getClientFromDatabase(currentUser.getId());
     }
 
     // Méthode pour générer la signature avec la clé privée décodée
@@ -58,12 +63,12 @@ public class TransactionFormController {
 
 
             User currentUser = Session.getCurrentUser();
-
+            this.client = userDAO.getClientFromDatabase(currentUser.getId());
             if (currentUser == null) {
                 throw new IllegalStateException("No user is currently logged in. Cannot submit transaction.");
             }
 
-            System.out.println("Current user: " + currentUser.getUsername() + ", Balance: " + currentUser.getBalance());
+            System.out.println("Current user: " + client.getUsername() + ", Balance: " + client.getBalance());
 
             String receiverPublicKey = receiverField.getText();
             double amount = Double.parseDouble(amountField.getText());
@@ -79,7 +84,7 @@ public class TransactionFormController {
             }
 
             Transaction transaction = new Transaction(
-                    currentUser.getId(),
+                    client.getId(),
                     receiverPublicKey,
                     amount,
                     TransactionStatus.PENDING
@@ -87,10 +92,7 @@ public class TransactionFormController {
 
             System.out.println("Transaction created: " + transaction);
 
-            PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
-            System.out.println("Private key decoded successfully.");
-
-            String signature = generateSignature(transaction, privateKey);
+            String signature = client.sign(transaction , this.client);
             transaction.setSignature(signature);
 
             System.out.println("Transaction signed: " + transaction);
