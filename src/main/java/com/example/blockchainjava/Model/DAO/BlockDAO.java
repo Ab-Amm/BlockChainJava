@@ -111,5 +111,27 @@ public class BlockDAO {
         System.out.println(blocks);
         return blocks;
     }
+    public void updateBlock(Block block) {
+        String sql = "UPDATE blocks SET previous_hash = ?, current_hash = ?, validator_signature = ? WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            // Remplir les paramètres de la requête
+            stmt.setString(1, block.getPreviousHash());
+            stmt.setString(2, block.getCurrentHash());
+            stmt.setString(3, block.getValidatorSignature());
+            stmt.setInt(4, block.getBlockId());
+
+            int rowsUpdated = stmt.executeUpdate();
+
+            if (rowsUpdated > 0) {
+                System.out.println("Bloc ID " + block.getBlockId() + " mis à jour avec succès.");
+            } else {
+                System.out.println("Aucun bloc trouvé avec l'ID " + block.getBlockId() + ". Mise à jour échouée.");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Erreur lors de la mise à jour du bloc ID " + block.getBlockId(), e);
+        }
+    }
+
 
 }
