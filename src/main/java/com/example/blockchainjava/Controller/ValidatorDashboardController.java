@@ -397,7 +397,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         return hasEnoughVotes;
     }
     private int getRequiredValidatorCount() {
-        return 2; // Could be made configurable in the future
+        int connectedValidatorsCount = userDAO.getConnectedValidatorsCount();
+        return (int) Math.ceil(connectedValidatorsCount / 2.0); // Return the majority of connected validators
     }
 
     private void addValidatorVoteForTransaction(Transaction transaction, Validator sourceValidator) {

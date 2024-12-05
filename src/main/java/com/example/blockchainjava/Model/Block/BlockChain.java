@@ -10,12 +10,15 @@ import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Util.Network.SocketServer;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-//import java.sql.Connection;
 import java.security.PublicKey;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.io.*;
+import java.nio.file.*;
 import java.util.stream.Collectors;
 
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
@@ -27,8 +30,11 @@ public class BlockChain {
     private final BlockDAO blockDAO;
     private final List<BlockchainUpdateObserver> observers;
     private final Connection connection;
+    private long chainVersion;
+    private final ObjectMapper objectMapper;
     private TransactionDAO transactionDAO;
     private UserDAO userDAO;
+
     public void loadChainFromDatabase() {
         List<Block> blocksFromDB = blockDAO.getAllBlocks();
         chain.addAll(blocksFromDB);
@@ -41,8 +47,22 @@ public class BlockChain {
         this.connection = DatabaseConnection.getConnection();
         this.transactionDAO = new TransactionDAO();
         this.userDAO = new UserDAO();
-        loadChainFromDatabase();
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.registerModule(new JavaTimeModule());
+        
+        // First try to load from local storage
+        loadFromLocalStorage();
+        
+        // If local storage is empty, try loading from database
+        if (chain.isEmpty()) {
+            loadFromDatabase();
+            // Save to local storage after loading from database
+            if (!chain.isEmpty()) {
+                saveToLocalStorage();
+            }
+        }
     }
+
     private String calculateBlockHash(Block block) {
         return HashUtil.sha256(
                 block.getPreviousHash() +
@@ -118,6 +138,7 @@ public class BlockChain {
             return false;
         }
     }
+
     private void restoreTransactionData(Transaction transaction) {
         try {
             System.out.println("Restauration des données de la transaction ID " + transaction.getId());
@@ -163,7 +184,6 @@ public class BlockChain {
         }
     }
 
-
     private void restoreBlockData(Block block) {
         System.out.println("Restoration du bloc ID " + block.getBlockId());
         try {
@@ -195,7 +215,6 @@ public class BlockChain {
                             block.getValidatorSignature()
             );
 
-
             // Mettre à jour le hash du bloc dans la base de données si nécessaire
             if (!recalculatedHash.equals(block.getCurrentHash())) {
                 System.out.println("Mise à jour du hash du bloc ID " + block.getBlockId());
@@ -207,6 +226,7 @@ public class BlockChain {
             System.err.println("Erreur lors de la restauration du bloc ID " + block.getBlockId() + ": " + e.getMessage());
         }
     }
+
     public boolean validateTransaction(Transaction transaction) {
         try {
             // Vérifier la signature de la transaction
@@ -256,21 +276,28 @@ public class BlockChain {
     public void addBlock(Transaction transaction, String validatorSignature) {
         String previousHash = chain.isEmpty() ? "0" : chain.getLast().getCurrentHash();
         int newBlockId = generateNewBlockId();
-        Block newBlock = new Block(newBlockId,previousHash, transaction, validatorSignature);
+        Block newBlock = new Block(newBlockId, previousHash, transaction, validatorSignature);
+        
+        // Add to chain and increment version
         chain.add(newBlock);
+        chainVersion++;
+        
+        // Save to both database and local storage
         blockDAO.saveBlock(newBlock);
+        saveToLocalStorage();
+        
         updateTransactionWithBlockIdAndStatus(transaction, newBlock);
 
-        // Mettre à jour les soldes des utilisateurs dans la base de données
+        // Update user balances
         TransactionDAO transactionDAO = new TransactionDAO();
         boolean balancesUpdated = transactionDAO.processTransactionBalances(transaction);
         if (!balancesUpdated) {
             throw new RuntimeException("Failed to update user balances after adding block.");
         }
 
-
         notifyObservers();
     }
+
     private void updateTransactionWithBlockIdAndStatus(Transaction transaction, Block newBlock) {
         System.out.println("voici bach necrasiw");
         System.out.println(transaction);
@@ -300,6 +327,19 @@ public class BlockChain {
         }
     }
 
+    private void loadFromDatabase() {
+        try {
+            List<Block> blocksFromDB = blockDAO.getAllBlocks();
+            if (!blocksFromDB.isEmpty()) {
+                chain.clear();
+                chain.addAll(blocksFromDB);
+                chainVersion = blocksFromDB.size(); // Use size as initial version
+                System.out.println("Loaded " + blocksFromDB.size() + " blocks from database");
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading from database: " + e.getMessage());
+        }
+    }
 
     private void notifyObservers() {
         for (BlockchainUpdateObserver observer : observers) {
@@ -311,11 +351,9 @@ public class BlockChain {
         return chain.getLast();
     }
 
-
     public List<Block> getBlocks() {
         return chain;
     }
-
 
     public List<Transaction> getPendingTransactions() {
         List<Transaction> transactions = new ArrayList<>();
@@ -345,6 +383,7 @@ public class BlockChain {
         }
         return false;
     }
+
     public double getBalance(Integer sender) {
         double balance = 0.0;
         for (Block block : chain) {
@@ -364,4 +403,214 @@ public class BlockChain {
         return false;
     }
 
+    public void saveToLocalStorage() {
+        try {
+            // Create storage directory if it doesn't exist
+            Path storageDir = Paths.get("blockchain_storage");
+            Files.createDirectories(storageDir);
+
+            // Prepare chain data with metadata
+            Map<String, Object> chainData = new HashMap<>();
+            chainData.put("version", chainVersion);
+            chainData.put("blocks", chain);
+            chainData.put("timestamp", System.currentTimeMillis());
+
+            // Create filename with version
+            String filename = String.format("%s/blockchain_%d.json", "blockchain_storage", chainVersion);
+            
+            // Write to temporary file first
+            Path tempFile = Paths.get(filename + ".tmp");
+            objectMapper.writeValue(tempFile.toFile(), chainData);
+            
+            // Atomically move temporary file to final location
+            Path finalFile = Paths.get(filename);
+            Files.move(tempFile, finalFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            
+            // Clean up old versions
+            cleanupOldVersions(storageDir, 5); // Keep last 5 versions
+            
+            System.out.println("Blockchain saved successfully to: " + filename);
+        } catch (IOException e) {
+            System.err.println("Error saving blockchain: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void loadFromLocalStorage() {
+        try {
+            Path storageDir = Paths.get("blockchain_storage");
+            if (!Files.exists(storageDir)) {
+                System.out.println("No local storage found. Starting fresh.");
+                return;
+            }
+
+            // Find the latest version file
+            Optional<Path> latestFile = Files.list(storageDir)
+                .filter(path -> path.toString().matches(".*blockchain_\\d+\\.json$"))
+                .max((p1, p2) -> {
+                    long v1 = extractVersion(p1.getFileName().toString());
+                    long v2 = extractVersion(p2.getFileName().toString());
+                    return Long.compare(v1, v2);
+                });
+
+            if (latestFile.isPresent()) {
+                Map<String, Object> chainData = objectMapper.readValue(
+                    latestFile.get().toFile(),
+                    new TypeReference<Map<String, Object>>() {}
+                );
+
+                // Extract version and validate
+                this.chainVersion = ((Number) chainData.get("version")).longValue();
+                List<Block> loadedChain = objectMapper.convertValue(
+                    chainData.get("blocks"),
+                    new TypeReference<List<Block>>() {}
+                );
+
+                if (validateLoadedChain(loadedChain)) {
+                    chain.clear();
+                    chain.addAll(loadedChain);
+                    System.out.println("Successfully loaded blockchain version " + chainVersion);
+                } else {
+                    System.err.println("Loaded chain failed validation");
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading blockchain: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private long extractVersion(String filename) {
+        try {
+            return Long.parseLong(filename.replaceAll(".*blockchain_(\\d+)\\.json", "$1"));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private void cleanupOldVersions(Path storageDir, int versionsToKeep) {
+        try {
+            List<Path> files = Files.list(storageDir)
+                .filter(path -> path.toString().matches(".*blockchain_\\d+\\.json$"))
+                .sorted((p1, p2) -> {
+                    long v1 = extractVersion(p1.getFileName().toString());
+                    long v2 = extractVersion(p2.getFileName().toString());
+                    return Long.compare(v2, v1); // Descending order
+                })
+                .collect(Collectors.toList());
+
+            // Delete old versions
+            for (int i = versionsToKeep; i < files.size(); i++) {
+                Files.deleteIfExists(files.get(i));
+            }
+        } catch (IOException e) {
+            System.err.println("Error cleaning up old versions: " + e.getMessage());
+        }
+    }
+
+    public CompareResult compareChain(List<Block> otherChain, long otherVersion) {
+        CompareResult result = new CompareResult();
+        result.setLocalVersion(this.chainVersion);
+        result.setOtherVersion(otherVersion);
+        
+        if (otherVersion > this.chainVersion) {
+            if (validateLoadedChain(otherChain)) {
+                result.setNeedsUpdate(true);
+                result.setValidChain(true);
+                System.out.println("Found newer valid chain version: " + otherVersion);
+            } else {
+                result.setNeedsUpdate(false);
+                result.setValidChain(false);
+                System.err.println("Newer chain version " + otherVersion + " failed validation");
+            }
+        } else {
+            result.setNeedsUpdate(false);
+            result.setValidChain(validateLoadedChain(otherChain));
+        }
+        
+        return result;
+    }
+
+    private boolean validateLoadedChain(List<Block> loadedChain) {
+        if (loadedChain == null || loadedChain.isEmpty()) {
+            return false;
+        }
+
+        String previousHash = "0"; // Genesis block has no previous hash
+        
+        for (Block block : loadedChain) {
+            // Verify block hash
+            if (!block.getCurrentHash().equals(block.calculateHash())) {
+                System.err.println("Invalid block hash for block ID: " + block.getBlockId());
+                return false;
+            }
+
+            // Verify block link
+            if (!block.getPreviousHash().equals(previousHash)) {
+                System.err.println("Invalid block link for block ID: " + block.getBlockId());
+                return false;
+            }
+
+            // Verify transaction signature
+            Transaction transaction = block.getTransaction();
+            if (!validateTransaction(transaction)) {
+                System.err.println("Invalid transaction in block ID: " + block.getBlockId());
+                return false;
+            }
+
+            previousHash = block.getCurrentHash();
+        }
+        
+        return true;
+    }
+
+    // Static inner class for chain comparison results
+    public static class CompareResult {
+        private boolean needsUpdate;
+        private boolean validChain;
+        private long localVersion;
+        private long otherVersion;
+
+        public boolean isNeedsUpdate() {
+            return needsUpdate;
+        }
+
+        public void setNeedsUpdate(boolean needsUpdate) {
+            this.needsUpdate = needsUpdate;
+        }
+
+        public boolean isValidChain() {
+            return validChain;
+        }
+
+        public void setValidChain(boolean validChain) {
+            this.validChain = validChain;
+        }
+
+        public long getLocalVersion() {
+            return localVersion;
+        }
+
+        public void setLocalVersion(long localVersion) {
+            this.localVersion = localVersion;
+        }
+
+        public long getOtherVersion() {
+            return otherVersion;
+        }
+
+        public void setOtherVersion(long otherVersion) {
+            this.otherVersion = otherVersion;
+        }
+
+        @Override
+        public String toString() {
+            return "CompareResult{" +
+                    "needsUpdate=" + needsUpdate +
+                    ", validChain=" + validChain +
+                    ", localVersion=" + localVersion +
+                    ", otherVersion=" + otherVersion +
+                    '}';
+        }
+    }
 }
