@@ -35,6 +35,10 @@ public class BlockChain {
     private TransactionDAO transactionDAO;
     private UserDAO userDAO;
 
+    private static final String STORAGE_DIR = "blockchain_storage";
+    private static final int MAX_VERSIONS = 5;
+    private static final Object chainLock = new Object();
+
     public void loadChainFromDatabase() {
         List<Block> blocksFromDB = blockDAO.getAllBlocks();
         chain.addAll(blocksFromDB);
@@ -49,6 +53,9 @@ public class BlockChain {
         this.userDAO = new UserDAO();
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
+        
+        // Create storage directory if it doesn't exist
+        initializeStorage();
         
         // First try to load from local storage
         loadFromLocalStorage();
@@ -273,29 +280,40 @@ public class BlockChain {
         return blockDAO.getLastBlockId() + 1;
     }
 
-    public void addBlock(Transaction transaction, String validatorSignature) {
-        String previousHash = chain.isEmpty() ? "0" : chain.getLast().getCurrentHash();
-        int newBlockId = generateNewBlockId();
-        Block newBlock = new Block(newBlockId, previousHash, transaction, validatorSignature);
+    public synchronized void addBlock(Transaction transaction, String validatorSignature) {
+        validateBlockParameters(transaction, validatorSignature);
         
-        // Add to chain and increment version
-        chain.add(newBlock);
-        chainVersion++;
-        
-        // Save to both database and local storage
-        blockDAO.saveBlock(newBlock);
-        saveToLocalStorage();
-        
-        updateTransactionWithBlockIdAndStatus(transaction, newBlock);
+        synchronized(chainLock) {
+            String previousHash = chain.isEmpty() ? "0" : chain.getLast().getCurrentHash();
+            int newBlockId = generateNewBlockId();
+            Block newBlock = new Block(newBlockId, previousHash, transaction, validatorSignature);
+            
+            // Add to chain and increment version
+            chain.add(newBlock);
+            chainVersion++;
+            
+            try {
+                // Save to both database and local storage
+                blockDAO.saveBlock(newBlock);
+                saveToLocalStorage();
+                
+                updateTransactionWithBlockIdAndStatus(transaction, newBlock);
 
-        // Update user balances
-        TransactionDAO transactionDAO = new TransactionDAO();
-        boolean balancesUpdated = transactionDAO.processTransactionBalances(transaction);
-        if (!balancesUpdated) {
-            throw new RuntimeException("Failed to update user balances after adding block.");
+                // Update user balances
+                TransactionDAO transactionDAO = new TransactionDAO();
+                boolean balancesUpdated = transactionDAO.processTransactionBalances(transaction);
+                if (!balancesUpdated) {
+                    throw new RuntimeException("Failed to update user balances after adding block.");
+                }
+
+                notifyObservers();
+            } catch (Exception e) {
+                // Rollback on failure
+                chain.remove(chain.size() - 1);
+                chainVersion--;
+                throw new RuntimeException("Failed to add block: " + e.getMessage(), e);
+            }
         }
-
-        notifyObservers();
     }
 
     private void updateTransactionWithBlockIdAndStatus(Transaction transaction, Block newBlock) {
@@ -403,42 +421,37 @@ public class BlockChain {
         return false;
     }
 
-    public void saveToLocalStorage() {
-        try {
-            // Create storage directory if it doesn't exist
-            Path storageDir = Paths.get("blockchain_storage");
-            Files.createDirectories(storageDir);
-
-            // Prepare chain data with metadata
-            Map<String, Object> chainData = new HashMap<>();
-            chainData.put("version", chainVersion);
-            chainData.put("blocks", chain);
-            chainData.put("timestamp", System.currentTimeMillis());
-
-            // Create filename with version
-            String filename = String.format("%s/blockchain_%d.json", "blockchain_storage", chainVersion);
-            
-            // Write to temporary file first
-            Path tempFile = Paths.get(filename + ".tmp");
-            objectMapper.writeValue(tempFile.toFile(), chainData);
-            
-            // Atomically move temporary file to final location
-            Path finalFile = Paths.get(filename);
-            Files.move(tempFile, finalFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            
-            // Clean up old versions
-            cleanupOldVersions(storageDir, 5); // Keep last 5 versions
-            
-            System.out.println("Blockchain saved successfully to: " + filename);
-        } catch (IOException e) {
-            System.err.println("Error saving blockchain: " + e.getMessage());
-            e.printStackTrace();
+    public synchronized void saveToLocalStorage() {
+        if (chain == null) {
+            throw new IllegalStateException("Chain is null");
+        }
+        
+        synchronized(chainLock) {
+            try {
+                Path storageDir = Paths.get(STORAGE_DIR);
+                String filename = String.format("blockchain_v%d.json", chainVersion);
+                Path filePath = storageDir.resolve(filename);
+                
+                // Write to temporary file first
+                Path tempFile = Files.createTempFile(storageDir, "temp_", ".json");
+                objectMapper.writeValue(tempFile.toFile(), chain);
+                
+                // Atomic move to final location
+                Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                
+                // Cleanup old versions
+                cleanupOldVersions(storageDir, MAX_VERSIONS);
+                
+                System.out.println("Saved blockchain version " + chainVersion + " to " + filePath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to save blockchain to storage", e);
+            }
         }
     }
 
     public void loadFromLocalStorage() {
         try {
-            Path storageDir = Paths.get("blockchain_storage");
+            Path storageDir = Paths.get(STORAGE_DIR);
             if (!Files.exists(storageDir)) {
                 System.out.println("No local storage found. Starting fresh.");
                 return;
@@ -562,6 +575,50 @@ public class BlockChain {
         }
         
         return true;
+    }
+
+    private void initializeStorage() {
+        try {
+            Path storagePath = Paths.get(STORAGE_DIR);
+            if (!Files.exists(storagePath)) {
+                Files.createDirectories(storagePath);
+                System.out.println("Created blockchain storage directory: " + storagePath.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to initialize blockchain storage directory", e);
+        }
+    }
+
+    public synchronized void reset() {
+        synchronized(chainLock) {
+            chain.clear();
+            chainVersion = 0;
+            saveToLocalStorage();
+            System.out.println("Blockchain reset completed");
+        }
+    }
+
+    public synchronized void pruneOldBlocks(int keepCount) {
+        if (keepCount <= 0) {
+            throw new IllegalArgumentException("Keep count must be positive");
+        }
+        synchronized(chainLock) {
+            if (chain.size() > keepCount) {
+                chain.subList(0, chain.size() - keepCount).clear();
+                chainVersion = chain.size();
+                saveToLocalStorage();
+                System.out.println("Pruned blockchain to " + keepCount + " blocks");
+            }
+        }
+    }
+
+    private void validateBlockParameters(Transaction transaction, String validatorSignature) {
+        if (transaction == null) {
+            throw new IllegalArgumentException("Transaction cannot be null");
+        }
+        if (validatorSignature == null || validatorSignature.trim().isEmpty()) {
+            throw new IllegalArgumentException("Validator signature cannot be null or empty");
+        }
     }
 
     // Static inner class for chain comparison results
