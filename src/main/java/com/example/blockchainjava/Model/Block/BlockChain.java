@@ -359,8 +359,12 @@ public class BlockChain {
 
     public synchronized void saveToLocalStorage() {
         if (chain == null) {
+            System.err.println("[BlockChain] ⚠️ Cannot save: chain is null");
             throw new IllegalStateException("Chain is null");
         }
+        
+        System.out.println("[BlockChain] 💾 Starting blockchain save operation...");
+        System.out.println("[BlockChain] 📊 Current chain state: Version=" + chainVersion + ", Blocks=" + chain.size());
         
         synchronized(chainLock) {
             try {
@@ -368,9 +372,11 @@ public class BlockChain {
                 Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
                 if (!Files.exists(storageDir)) {
                     Files.createDirectories(storageDir);
-                    System.out.println("Created storage directory: " + storageDir);
+                    System.out.println("[BlockChain] 📁 Created storage directory: " + storageDir);
                 }
 
+                System.out.println("[BlockChain] 🔄 Preparing JSON data for " + chain.size() + " blocks");
+                
                 // Create JSON string manually
                 StringBuilder jsonBuilder = new StringBuilder();
                 jsonBuilder.append("{\n");
@@ -381,6 +387,9 @@ public class BlockChain {
                 // Add blocks
                 for (int i = 0; i < chain.size(); i++) {
                     Block block = chain.get(i);
+                    System.out.println("[BlockChain] 📦 Processing block " + (i+1) + "/" + chain.size() + 
+                                    " (ID: " + block.getBlockId() + ")");
+                    
                     jsonBuilder.append("    {\n");
                     jsonBuilder.append("      \"blockId\": ").append(block.getBlockId()).append(",\n");
                     jsonBuilder.append("      \"previousHash\": \"").append(block.getPreviousHash()).append("\",\n");
@@ -412,18 +421,21 @@ public class BlockChain {
                 Path filePath = storageDir.resolve(filename);
                 Path tempFile = Files.createTempFile(storageDir, "temp_", ".json");
 
+                System.out.println("[BlockChain] ✍️ Writing to temporary file: " + tempFile);
                 // Write to temporary file first
                 Files.writeString(tempFile, jsonBuilder.toString(), StandardCharsets.UTF_8);
 
+                System.out.println("[BlockChain] 🔄 Moving temporary file to final location");
                 // Atomic move to final location
                 Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 
-                System.out.println("Successfully saved blockchain version " + chainVersion + " to " + filePath);
+                System.out.println("[BlockChain] ✅ Successfully saved blockchain version " + chainVersion + " to " + filePath);
 
                 // Cleanup old versions
+                System.out.println("[BlockChain] 🧹 Starting cleanup of old versions...");
                 cleanupOldVersions(storageDir, MAX_VERSIONS);
             } catch (IOException e) {
-                System.err.println("Error saving blockchain: " + e.getMessage());
+                System.err.println("[BlockChain] ❌ Error saving blockchain: " + e.getMessage());
                 e.printStackTrace();
                 throw new RuntimeException("Failed to save blockchain to storage", e);
             }
@@ -431,13 +443,15 @@ public class BlockChain {
     }
 
     public void loadFromLocalStorage() {
+        System.out.println("[BlockChain] 📂 Starting blockchain load operation...");
         try {
             Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
             if (!Files.exists(storageDir)) {
-                System.out.println("No local storage found. Starting fresh.");
+                System.out.println("[BlockChain] ℹ️ No local storage found. Starting fresh.");
                 return;
             }
 
+            System.out.println("[BlockChain] 🔍 Searching for blockchain files...");
             // Find latest version file
             Optional<Path> latestFile = Files.list(storageDir)
                 .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
@@ -448,20 +462,28 @@ public class BlockChain {
                 });
 
             if (latestFile.isPresent()) {
+                System.out.println("[BlockChain] 📄 Found latest blockchain file: " + latestFile.get().getFileName());
                 String jsonContent = Files.readString(latestFile.get(), StandardCharsets.UTF_8);
+                
                 // Parse version
                 Pattern versionPattern = Pattern.compile("\"version\":\\s*(\\d+)");
                 Matcher versionMatcher = versionPattern.matcher(jsonContent);
                 if (versionMatcher.find()) {
                     this.chainVersion = Long.parseLong(versionMatcher.group(1));
+                    System.out.println("[BlockChain] 📊 Found blockchain version: " + chainVersion);
                 }
 
+                System.out.println("[BlockChain] 🔄 Starting block parsing...");
                 // Parse blocks
                 chain.clear();
                 Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"]*)\",\\s*\"currentHash\":\\s*\"([^\"]*)\",\\s*\"timestamp\":\\s*\"([^\"]*)\",\\s*\"validatorSignature\":\\s*\"([^\"]*)\",\\s*\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
                 Matcher blockMatcher = blockPattern.matcher(jsonContent);
 
+                int blockCount = 0;
                 while (blockMatcher.find()) {
+                    blockCount++;
+                    System.out.println("[BlockChain] 📦 Parsing block " + blockCount);
+                    
                     int blockId = Integer.parseInt(blockMatcher.group(1));
                     String previousHash = blockMatcher.group(2);
                     String currentHash = blockMatcher.group(3);
@@ -469,6 +491,7 @@ public class BlockChain {
                     String validatorSignature = blockMatcher.group(5);
                     String transactionJson = blockMatcher.group(6);
 
+                    System.out.println("[BlockChain] 💳 Parsing transaction for block " + blockId);
                     // Parse transaction
                     Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"]*)\",\\s*\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"]*)\",\\s*\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"]*)\",\\s*\"signature\":\\s*\"([^\"]*)\"");
                     Matcher txMatcher = txPattern.matcher(transactionJson);
@@ -488,13 +511,17 @@ public class BlockChain {
                         block.setCurrentHash(currentHash);
                         block.setTimestamp(LocalDateTime.parse(timestamp));
                         chain.add(block);
+                        System.out.println("[BlockChain] ✅ Successfully added block " + blockId + " to chain");
                     }
                 }
 
-                System.out.println("Loaded blockchain version " + chainVersion + " with " + chain.size() + " blocks");
+                System.out.println("[BlockChain] 🎉 Successfully loaded blockchain version " + chainVersion + 
+                                 " with " + chain.size() + " blocks");
+            } else {
+                System.out.println("[BlockChain] ℹ️ No blockchain files found. Starting fresh.");
             }
         } catch (IOException e) {
-            System.err.println("Error loading blockchain: " + e.getMessage());
+            System.err.println("[BlockChain] ❌ Error loading blockchain: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -516,9 +543,11 @@ public class BlockChain {
     private void cleanupOldVersions(Path storageDir, int keepCount) {
         try {
             if (!Files.exists(storageDir)) {
+                System.out.println("[BlockChain] ℹ️ No storage directory to clean");
                 return;
             }
 
+            System.out.println("[BlockChain] 🔍 Scanning for old blockchain versions...");
             // Get all blockchain files
             List<Path> versionFiles = Files.list(storageDir)
                 .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
@@ -529,19 +558,26 @@ public class BlockChain {
                 })
                 .collect(Collectors.toList());
 
+            System.out.println("[BlockChain] 📊 Found " + versionFiles.size() + " version files, keeping newest " + keepCount);
+            
             // Delete old versions
             if (versionFiles.size() > keepCount) {
                 for (int i = keepCount; i < versionFiles.size(); i++) {
                     try {
-                        Files.deleteIfExists(versionFiles.get(i));
-                        System.out.println("Deleted old version: " + versionFiles.get(i));
+                        Path fileToDelete = versionFiles.get(i);
+                        Files.deleteIfExists(fileToDelete);
+                        System.out.println("[BlockChain] 🗑️ Deleted old version: " + fileToDelete.getFileName());
                     } catch (IOException e) {
-                        System.err.println("Error deleting old version: " + versionFiles.get(i) + " - " + e.getMessage());
+                        System.err.println("[BlockChain] ⚠️ Error deleting old version: " + versionFiles.get(i) + " - " + e.getMessage());
                     }
                 }
+                System.out.println("[BlockChain] ✅ Cleanup complete. Kept " + keepCount + " newest versions");
+            } else {
+                System.out.println("[BlockChain] ℹ️ No cleanup needed. Current versions (" + versionFiles.size() + 
+                                 ") <= max versions (" + keepCount + ")");
             }
         } catch (IOException e) {
-            System.err.println("Error cleaning up old versions: " + e.getMessage());
+            System.err.println("[BlockChain] ❌ Error during cleanup: " + e.getMessage());
         }
     }
 
@@ -668,7 +704,7 @@ public class BlockChain {
             Path storagePath = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
             if (!Files.exists(storagePath)) {
                 Files.createDirectories(storagePath);
-                System.out.println("Created blockchain storage directory: " + storagePath.toAbsolutePath());
+                System.out.println("[BlockChain] 📁 Created blockchain storage directory: " + storagePath.toAbsolutePath());
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to initialize blockchain storage directory", e);
@@ -680,7 +716,7 @@ public class BlockChain {
             chain.clear();
             chainVersion = 0;
             saveToLocalStorage();
-            System.out.println("Blockchain reset completed");
+            System.out.println("[BlockChain] ✅ Blockchain reset completed");
         }
     }
 
@@ -693,7 +729,7 @@ public class BlockChain {
                 chain.subList(0, chain.size() - keepCount).clear();
                 chainVersion = chain.size();
                 saveToLocalStorage();
-                System.out.println("Pruned blockchain to " + keepCount + " blocks");
+                System.out.println("[BlockChain] ✅ Pruned blockchain to " + keepCount + " blocks");
             }
         }
     }
