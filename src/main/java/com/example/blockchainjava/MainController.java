@@ -42,8 +42,8 @@ public class MainController {
     @FXML
     public void initialize() {
         // Initialize role combo box
-        roleComboBox.getItems().addAll(UserRole.CLIENT);
-        roleComboBox.setItems(FXCollections.observableArrayList(UserRole.values()));
+//        roleComboBox.getItems().addAll(UserRole.CLIENT);
+//        roleComboBox.setItems(FXCollections.observableArrayList(UserRole.values()));
     }
 
     @FXML
@@ -78,9 +78,9 @@ public class MainController {
         String username = signupUsername.getText();
         String password = signupPassword.getText();
         String confirmPassword = signupConfirmPassword.getText();
-        UserRole role = roleComboBox.getValue();
+
         // Validate input
-        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() ) {
+        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
             showAlert(Alert.AlertType.ERROR, "Signup Error", "Please fill in all fields");
             return;
         }
@@ -97,27 +97,24 @@ public class MainController {
                 return;
             }
 
-            // Create new user based on role
-            User newUser = switch (role) {
-                case CLIENT -> new Client(username, password);
-                case VALIDATOR -> new Validator(username, password);  // Ajouter le cas pour VALIDATOR
-                case ADMIN -> new Admin(username, password);  // Ajouter le cas pour ADMIN si ce n'est pas déjà le cas
-                default -> throw new IllegalStateException("Unexpected role: " + role);
-            };
-
+            // Create new user as Client
+            User newUser = new Client(username, password);
 
             // Save user to database
             userDAO.saveUser(newUser);
 
-            showAlert(Alert.AlertType.INFORMATION, "Success", "Account created successfully");
-            clearSignupFields();
-            mainTabPane.getSelectionModel().select(loginTab);
-
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred during signup");
-            e.printStackTrace();
+            e.printStackTrace(); // Log the exception for debugging
+            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred during signup: " + e.getMessage());
+            return; // Exit the method to avoid executing success actions
         }
+
+        // Actions executed only after successful user creation
+        showAlert(Alert.AlertType.INFORMATION, "Success", "Account created successfully");
+        clearSignupFields();
+        mainTabPane.getSelectionModel().select(loginTab);
     }
+
 
     private void openDashboard(User user) {
         try {

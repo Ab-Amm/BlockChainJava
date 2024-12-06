@@ -49,16 +49,7 @@
                     <TextField fx:id="signupUsername" promptText="Username"/>
                     <PasswordField fx:id="signupPassword" promptText="Password"/>
                     <PasswordField fx:id="signupConfirmPassword" promptText="Confirm Password"/>
-                    <ComboBox fx:id="roleComboBox" promptText="Select Role" maxWidth="Infinity">
 
-                        <items>
-                            <FXCollections fx:factory="observableArrayList">
-                                <String fx:value="CLIENT"/>
-                                <String fx:value="VALIDATOR"/>
-                                <String fx:value="ADMIN"/>
-                            </FXCollections>
-                        </items>
-                    </ComboBox>
                     <Button text="Sign Up" onAction="#handleSignup"
                             style="-fx-background-color: #2196F3; -fx-text-fill: white;"
                             maxWidth="Infinity"/>

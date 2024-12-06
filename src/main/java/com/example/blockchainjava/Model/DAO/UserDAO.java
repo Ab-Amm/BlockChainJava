@@ -116,17 +116,18 @@ public class UserDAO {
         return null; // Return null if no validator was found
     }
 
-
     public void saveUser(User user) {
         String sql = "INSERT INTO users (username, role, created_at, password, public_key, private_key) VALUES (?, ?, ?, ?, ?, ?)";
 
         // Hash the password before storing
         String hashedPassword = HashUtil.hashPassword(user.getPassword());
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        // Set default role to "Client" if not specified
+        String role = (user.getRole() != null) ? user.getRole().toString() : "Client";
 
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, user.getUsername());
-            stmt.setString(2, user.getRole().toString());
+            stmt.setString(2, role);
             stmt.setTimestamp(3, Timestamp.valueOf(user.getCreatedAt()));
             stmt.setString(4, hashedPassword);
             stmt.setString(5, user.getPublicKey());
@@ -138,7 +139,7 @@ public class UserDAO {
             throw new RuntimeException(e);
         }
     }
-    public void saveUser(User user , double balance ) {
+  public void saveUser(User user , double balance ) {
         String sql = "INSERT INTO users (username, role, created_at, password, balance ,public_key, private_key) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         // Hash the password before storing
