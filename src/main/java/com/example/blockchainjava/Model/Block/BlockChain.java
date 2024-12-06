@@ -20,6 +20,8 @@ import java.util.*;
 import java.io.*;
 import java.nio.file.*;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Util.Security.HashUtil;
@@ -345,7 +347,7 @@ public class BlockChain {
         }
     }
 
-    private void loadFromDatabase() {
+    public void loadFromDatabase() {
         try {
             List<Block> blocksFromDB = blockDAO.getAllBlocks();
             if (!blocksFromDB.isEmpty()) {
@@ -359,7 +361,133 @@ public class BlockChain {
         }
     }
 
-    private void notifyObservers() {
+    public synchronized void saveToLocalStorage() {
+        if (chain == null) {
+            throw new IllegalStateException("Chain is null");
+        }
+        
+        synchronized(chainLock) {
+            try {
+                // Create the blockchain data structure
+                Map<String, Object> blockchainData = new HashMap<>();
+                blockchainData.put("version", chainVersion);
+                blockchainData.put("blocks", chain);
+                blockchainData.put("timestamp", System.currentTimeMillis());
+                
+                // Ensure directory exists
+                Path storageDir = Paths.get(STORAGE_DIR);
+                if (!Files.exists(storageDir)) {
+                    Files.createDirectories(storageDir);
+                }
+                
+                // Create filename with version
+                String filename = String.format("blockchain_v%d.json", chainVersion);
+                Path filePath = storageDir.resolve(filename);
+                
+                // Write to temporary file first
+                Path tempFile = Files.createTempFile(storageDir, "temp_", ".json");
+                objectMapper.writerWithDefaultPrettyPrinter()
+                          .writeValue(tempFile.toFile(), blockchainData);
+                
+                // Atomic move to final location
+                Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                
+                // Cleanup old versions
+                cleanupOldVersions(storageDir, MAX_VERSIONS);
+                
+                System.out.println("Saved blockchain version " + chainVersion + " to " + filePath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to save blockchain to storage", e);
+            }
+        }
+    }
+
+    public void loadFromLocalStorage() {
+        try {
+            Path storageDir = Paths.get(STORAGE_DIR);
+            if (!Files.exists(storageDir)) {
+                System.out.println("No local storage found. Starting fresh.");
+                return;
+            }
+
+            // Find the latest version file
+            Optional<Path> latestFile = Files.list(storageDir)
+                .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
+                .max((p1, p2) -> {
+                    long v1 = extractVersion(p1.getFileName().toString());
+                    long v2 = extractVersion(p2.getFileName().toString());
+                    return Long.compare(v1, v2);
+                });
+
+            if (latestFile.isPresent()) {
+                // Read the file
+                Map<String, Object> blockchainData = objectMapper.readValue(
+                    latestFile.get().toFile(),
+                    new TypeReference<Map<String, Object>>() {}
+                );
+
+                // Extract version
+                this.chainVersion = ((Number) blockchainData.get("version")).longValue();
+
+                // Extract blocks
+                List<Block> loadedBlocks = objectMapper.convertValue(
+                    blockchainData.get("blocks"),
+                    new TypeReference<List<Block>>() {}
+                );
+
+                // Validate the loaded chain
+                if (validateLoadedChain(loadedBlocks)) {
+                    chain.clear();
+                    chain.addAll(loadedBlocks);
+                    System.out.println("Loaded blockchain version " + chainVersion + 
+                                     " with " + chain.size() + " blocks");
+                } else {
+                    System.err.println("Loaded chain validation failed. Starting fresh.");
+                    chain.clear();
+                    chainVersion = 0;
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading blockchain: " + e.getMessage());
+            chain.clear();
+            chainVersion = 0;
+        }
+    }
+
+    private void cleanupOldVersions(Path storageDir, int keepCount) {
+        try {
+            // Get all blockchain files
+            List<Path> versionFiles = Files.list(storageDir)
+                .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
+                .sorted((p1, p2) -> {
+                    long v1 = extractVersion(p1.getFileName().toString());
+                    long v2 = extractVersion(p2.getFileName().toString());
+                    return Long.compare(v2, v1); // Sort in descending order
+                })
+                .collect(Collectors.toList());
+
+            // Delete old versions
+            if (versionFiles.size() > keepCount) {
+                for (int i = keepCount; i < versionFiles.size(); i++) {
+                    Files.deleteIfExists(versionFiles.get(i));
+                    System.out.println("Deleted old version: " + versionFiles.get(i));
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error cleaning up old versions: " + e.getMessage());
+        }
+    }
+
+    private long extractVersion(String filename) {
+        Pattern pattern = Pattern.compile("blockchain_v(\\d+)\\.json");
+        Matcher matcher = pattern.matcher(filename);
+        if (matcher.find()) {
+            return Long.parseLong(matcher.group(1));
+        }
+        return 0;
+    }
+
+    public synchronized void notifyObservers() {
         for (BlockchainUpdateObserver observer : observers) {
             observer.onBlockchainUpdate(this);
         }
@@ -419,106 +547,6 @@ public class BlockChain {
             }
         }
         return false;
-    }
-
-    public synchronized void saveToLocalStorage() {
-        if (chain == null) {
-            throw new IllegalStateException("Chain is null");
-        }
-        
-        synchronized(chainLock) {
-            try {
-                Path storageDir = Paths.get(STORAGE_DIR);
-                String filename = String.format("blockchain_v%d.json", chainVersion);
-                Path filePath = storageDir.resolve(filename);
-                
-                // Write to temporary file first
-                Path tempFile = Files.createTempFile(storageDir, "temp_", ".json");
-                objectMapper.writeValue(tempFile.toFile(), chain);
-                
-                // Atomic move to final location
-                Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-                
-                // Cleanup old versions
-                cleanupOldVersions(storageDir, MAX_VERSIONS);
-                
-                System.out.println("Saved blockchain version " + chainVersion + " to " + filePath);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to save blockchain to storage", e);
-            }
-        }
-    }
-
-    public void loadFromLocalStorage() {
-        try {
-            Path storageDir = Paths.get(STORAGE_DIR);
-            if (!Files.exists(storageDir)) {
-                System.out.println("No local storage found. Starting fresh.");
-                return;
-            }
-
-            // Find the latest version file
-            Optional<Path> latestFile = Files.list(storageDir)
-                .filter(path -> path.toString().matches(".*blockchain_\\d+\\.json$"))
-                .max((p1, p2) -> {
-                    long v1 = extractVersion(p1.getFileName().toString());
-                    long v2 = extractVersion(p2.getFileName().toString());
-                    return Long.compare(v1, v2);
-                });
-
-            if (latestFile.isPresent()) {
-                Map<String, Object> chainData = objectMapper.readValue(
-                    latestFile.get().toFile(),
-                    new TypeReference<Map<String, Object>>() {}
-                );
-
-                // Extract version and validate
-                this.chainVersion = ((Number) chainData.get("version")).longValue();
-                List<Block> loadedChain = objectMapper.convertValue(
-                    chainData.get("blocks"),
-                    new TypeReference<List<Block>>() {}
-                );
-
-                if (validateLoadedChain(loadedChain)) {
-                    chain.clear();
-                    chain.addAll(loadedChain);
-                    System.out.println("Successfully loaded blockchain version " + chainVersion);
-                } else {
-                    System.err.println("Loaded chain failed validation");
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Error loading blockchain: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    private long extractVersion(String filename) {
-        try {
-            return Long.parseLong(filename.replaceAll(".*blockchain_(\\d+)\\.json", "$1"));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
-
-    private void cleanupOldVersions(Path storageDir, int versionsToKeep) {
-        try {
-            List<Path> files = Files.list(storageDir)
-                .filter(path -> path.toString().matches(".*blockchain_\\d+\\.json$"))
-                .sorted((p1, p2) -> {
-                    long v1 = extractVersion(p1.getFileName().toString());
-                    long v2 = extractVersion(p2.getFileName().toString());
-                    return Long.compare(v2, v1); // Descending order
-                })
-                .collect(Collectors.toList());
-
-            // Delete old versions
-            for (int i = versionsToKeep; i < files.size(); i++) {
-                Files.deleteIfExists(files.get(i));
-            }
-        } catch (IOException e) {
-            System.err.println("Error cleaning up old versions: " + e.getMessage());
-        }
     }
 
     public CompareResult compareChain(List<Block> otherChain, long otherVersion) {
@@ -620,6 +648,15 @@ public class BlockChain {
             throw new IllegalArgumentException("Validator signature cannot be null or empty");
         }
     }
+
+    public long getVersion() {
+        return this.chainVersion;
+    }
+
+    public void setVersion(long version) {
+        this.chainVersion = version;
+    }
+
 
     // Static inner class for chain comparison results
     public static class CompareResult {

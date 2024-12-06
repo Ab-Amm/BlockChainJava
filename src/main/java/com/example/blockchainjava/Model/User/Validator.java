@@ -1,5 +1,6 @@
 package com.example.blockchainjava.Model.User;
 
+import com.example.blockchainjava.Model.Block.BlockChain;
 import com.example.blockchainjava.Model.DAO.UserDAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Util.Security.AuthenticationUtil;
@@ -20,10 +21,11 @@ public class Validator extends User {
     private String ipAddress; // IP Address of the validator
     private int port;         // Port number of the validator
     //private double balance;   // Validator's balance in the system
+    private BlockChain blockchain;
 
     // Constructor with IP Address and Port
     public Validator(int id , String username , double balance) throws NoSuchAlgorithmException {
-        super(id, username ,balance , UserRole.VALIDATOR);  // Call the parent constructor (User)
+        super(id, username ,balance ,UserRole.VALIDATOR);  // Call the parent constructor (User)
 
         this.isActive = true; // Validator is active by default
         generateKeyPair(); // Generate key pair for the validator
@@ -52,8 +54,6 @@ public class Validator extends User {
             System.err.println("No data found for the validator with username: " + username);
         }
     }
-
-
 
     public Validator(String ipAddress, int port) throws NoSuchAlgorithmException {
         super(" ", " ", UserRole.VALIDATOR); // Appel au constructeur de la classe parente User
@@ -183,6 +183,14 @@ public class Validator extends User {
         this.port = port;
     }
 
+    public BlockChain getBlockchain() {
+        return blockchain;
+    }
+
+    public void setBlockchain(BlockChain blockchain) {
+        this.blockchain = blockchain;
+    }
+
     @Override
     public String toString() {
         return "Validator{" +
@@ -198,7 +206,4 @@ public class Validator extends User {
 //                ", createdAt=" + getCreatedAt() +
                 '}';
     }
-
-
-
 }

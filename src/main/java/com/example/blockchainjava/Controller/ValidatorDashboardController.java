@@ -142,12 +142,14 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             this.validator = userDAO.getValidatorFromDatabase(Id);
             System.out.println("voici cle prive de validator");
             System.out.println(validator.getPrivateKey());
+            
+            // Set blockchain for validator
+            this.validator.setBlockchain(this.blockchain);
         }else {
             System.err.println("No user is currently logged in.");
         }
         this.connection = DatabaseConnection.getConnection();
         System.out.println("this is the validator connected to this dashboard: " + validator);
-        this.validator = userDAO.getValidatorFromDatabase(currentUser.getId());
 
         // Add shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -290,8 +292,18 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     public void onBlockchainUpdate(BlockChain updatedBlockchain) {
         this.blockchain = updatedBlockchain;
 
+        // Load the latest chain from database
+        blockchain.loadFromDatabase();
+
+        // Save to local storage
+        blockchain.saveToLocalStorage();
+
         // Met à jour la vue sur le thread JavaFX
-        Platform.runLater(() -> updateBlockchainView());
+        Platform.runLater(() -> {
+            updateBlockchainView();
+            updatePendingTransactionsTable();
+            updateUserTableView();
+        });
     }
 
     private void updateBlockchainView() {
@@ -543,6 +555,13 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             System.err.println("Failed to create block message: " + e.getMessage());
             e.printStackTrace();
         }
+
+        // After broadcasting, ensure all validators update their local storage
+        Platform.runLater(() -> {
+            blockchain.loadFromDatabase();
+            blockchain.saveToLocalStorage();
+            updateBlockchainView();
+        });
     }
 
     private void sendBlockToValidator(Validator validator, String message) {
@@ -881,9 +900,37 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             Platform.runLater(() -> {
                 addValidatorVoteForTransaction(transaction, sourceValidator);
             });
+
+            // After handling the message, update local storage
+            blockchain.loadFromDatabase();
+            blockchain.saveToLocalStorage();
+
+            Platform.runLater(this::updateBlockchainView);
         } catch (IOException e) {
             System.err.println("Failed to process validation message: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private void synchronizeWithOtherValidators() {
+        List<Validator> otherValidators = getOtherValidators();
+
+        for (Validator otherValidator : otherValidators) {
+            if (isValidatorAvailable(otherValidator)) {
+                // Compare chain versions
+                BlockChain.CompareResult compareResult = blockchain.compareChain(
+                        otherValidator.getBlockchain().getBlocks(),
+                        otherValidator.getBlockchain().getVersion()
+                );
+
+                if (compareResult.isNeedsUpdate()) {
+                    // Our chain is behind, update from database
+                    blockchain.loadFromDatabase();
+                    blockchain.saveToLocalStorage();
+                    updateBlockchainView();
+                    break;
+                }
+            }
         }
     }
 
@@ -914,6 +961,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private Client getUserById(int userId) {
         return userDAO.getClientFromDatabase(userId); // Adjust this based on your actual DAO implementation
     }
+
     @FXML
     private void updateClientBalance() throws Exception {
         // Récupération des données de l'interface utilisateur
@@ -980,20 +1028,20 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
         blockchain.addBlock(transaction, signature);
 
+        // Mettre à jour le solde de l'utilisateur
+        user.setBalance(newBalance);
+        userDAO.updateUserBalance(user, newBalance);
 
-            user.setBalance(newBalance);
-            userDAO.updateUserBalance(user, newBalance);
+        // Si l'ajustement est négatif, soustraire du solde du validateur
+        if (adjustmentAmount < 0) {
+            double newValidatorBalance = validator.getBalance() + Math.abs(adjustmentAmount);
+            validator.setBalance(newValidatorBalance);
+            userDAO.updateValidatorBalance(validator, newValidatorBalance); // Mise à jour du solde du validateur
+        }
 
-            // Si l'ajustement est négatif, soustraire du solde du validateur
-            if (adjustmentAmount < 0) {
-                double newValidatorBalance = validator.getBalance() + Math.abs(adjustmentAmount);
-                validator.setBalance(newValidatorBalance);
-                userDAO.updateValidatorBalance(validator, newValidatorBalance); // Mise à jour du solde du validateur
-            }
-
-            // Afficher un message de succès
-            showSuccess("Balance updated successfully.", "The balance has been updated and the transaction is complete.");
-            updateUserTableView(); // Actualisation de la table des utilisateurs
+        // Afficher un message de succès
+        showSuccess("Balance updated successfully.", "The balance has been updated and the transaction is complete.");
+        updateUserTableView(); // Actualisation de la table des utilisateurs
 
     }
 
