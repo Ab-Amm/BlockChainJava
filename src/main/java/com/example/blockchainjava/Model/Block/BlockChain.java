@@ -10,22 +10,21 @@ import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Util.Network.SocketServer;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
-import java.security.PublicKey;
-import java.sql.*;
-import java.util.*;
-import java.io.*;
-import java.nio.file.*;
-import java.util.stream.Collectors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Util.Security.HashUtil;
 import com.example.blockchainjava.Util.Security.SecurityUtils;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.security.PublicKey;
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 
 public class BlockChain {
     private final List<Block> chain;
@@ -33,7 +32,6 @@ public class BlockChain {
     private final List<BlockchainUpdateObserver> observers;
     private final Connection connection;
     private long chainVersion;
-    private final ObjectMapper objectMapper;
     private TransactionDAO transactionDAO;
     private UserDAO userDAO;
 
@@ -53,8 +51,6 @@ public class BlockChain {
         this.connection = DatabaseConnection.getConnection();
         this.transactionDAO = new TransactionDAO();
         this.userDAO = new UserDAO();
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
         
         // Create storage directory if it doesn't exist
         initializeStorage();
@@ -109,7 +105,7 @@ public class BlockChain {
                 }
 
                 // Vérifier les transactions dans le bloc
-                List<Transaction> transactions = transactionDAO.getTransactionsByBlockId(block.getBlockId() );
+                List<Transaction> transactions = transactionDAO.getTransactionsByBlockId(block.getBlockId());
                 for (Transaction transaction : transactions) {
                     // Vérifier la signature de la transaction
                     PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
@@ -368,35 +364,67 @@ public class BlockChain {
         
         synchronized(chainLock) {
             try {
-                // Create the blockchain data structure
-                Map<String, Object> blockchainData = new HashMap<>();
-                blockchainData.put("version", chainVersion);
-                blockchainData.put("blocks", chain);
-                blockchainData.put("timestamp", System.currentTimeMillis());
-                
-                // Ensure directory exists
-                Path storageDir = Paths.get(STORAGE_DIR);
+                // Ensure storage directory exists
+                Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
                 if (!Files.exists(storageDir)) {
                     Files.createDirectories(storageDir);
+                    System.out.println("Created storage directory: " + storageDir);
+                }
+
+                // Create JSON string manually
+                StringBuilder jsonBuilder = new StringBuilder();
+                jsonBuilder.append("{\n");
+                jsonBuilder.append("  \"version\": ").append(chainVersion).append(",\n");
+                jsonBuilder.append("  \"timestamp\": ").append(System.currentTimeMillis()).append(",\n");
+                jsonBuilder.append("  \"blocks\": [\n");
+
+                // Add blocks
+                for (int i = 0; i < chain.size(); i++) {
+                    Block block = chain.get(i);
+                    jsonBuilder.append("    {\n");
+                    jsonBuilder.append("      \"blockId\": ").append(block.getBlockId()).append(",\n");
+                    jsonBuilder.append("      \"previousHash\": \"").append(block.getPreviousHash()).append("\",\n");
+                    jsonBuilder.append("      \"currentHash\": \"").append(block.getCurrentHash()).append("\",\n");
+                    jsonBuilder.append("      \"timestamp\": \"").append(block.getTimestamp()).append("\",\n");
+                    jsonBuilder.append("      \"validatorSignature\": \"").append(block.getValidatorSignature()).append("\",\n");
+                    
+                    // Add transaction
+                    Transaction tx = block.getTransaction();
+                    jsonBuilder.append("      \"transaction\": {\n");
+                    jsonBuilder.append("        \"id\": ").append(tx.getId()).append(",\n");
+                    jsonBuilder.append("        \"senderId\": ").append(tx.getSenderId()).append(",\n");
+                    jsonBuilder.append("        \"receiverKey\": \"").append(tx.getReceiverKey()).append("\",\n");
+                    jsonBuilder.append("        \"amount\": ").append(tx.getAmount()).append(",\n");
+                    jsonBuilder.append("        \"status\": \"").append(tx.getStatus()).append("\",\n");
+                    jsonBuilder.append("        \"blockId\": ").append(tx.getBlockId()).append(",\n");
+                    jsonBuilder.append("        \"createdAt\": \"").append(tx.getCreatedAt()).append("\",\n");
+                    jsonBuilder.append("        \"signature\": \"").append(tx.getSignature()).append("\"\n");
+                    jsonBuilder.append("      }\n");
+                    
+                    jsonBuilder.append("    }").append(i < chain.size() - 1 ? "," : "").append("\n");
                 }
                 
+                jsonBuilder.append("  ]\n");
+                jsonBuilder.append("}\n");
+
                 // Create filename with version
                 String filename = String.format("blockchain_v%d.json", chainVersion);
                 Path filePath = storageDir.resolve(filename);
-                
-                // Write to temporary file first
                 Path tempFile = Files.createTempFile(storageDir, "temp_", ".json");
-                objectMapper.writerWithDefaultPrettyPrinter()
-                          .writeValue(tempFile.toFile(), blockchainData);
-                
+
+                // Write to temporary file first
+                Files.writeString(tempFile, jsonBuilder.toString(), StandardCharsets.UTF_8);
+
                 // Atomic move to final location
                 Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-                
+
+                System.out.println("Successfully saved blockchain version " + chainVersion + " to " + filePath);
+
                 // Cleanup old versions
                 cleanupOldVersions(storageDir, MAX_VERSIONS);
-                
-                System.out.println("Saved blockchain version " + chainVersion + " to " + filePath);
             } catch (IOException e) {
+                System.err.println("Error saving blockchain: " + e.getMessage());
+                e.printStackTrace();
                 throw new RuntimeException("Failed to save blockchain to storage", e);
             }
         }
@@ -404,13 +432,13 @@ public class BlockChain {
 
     public void loadFromLocalStorage() {
         try {
-            Path storageDir = Paths.get(STORAGE_DIR);
+            Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
             if (!Files.exists(storageDir)) {
                 System.out.println("No local storage found. Starting fresh.");
                 return;
             }
 
-            // Find the latest version file
+            // Find latest version file
             Optional<Path> latestFile = Files.list(storageDir)
                 .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
                 .max((p1, p2) -> {
@@ -420,42 +448,77 @@ public class BlockChain {
                 });
 
             if (latestFile.isPresent()) {
-                // Read the file
-                Map<String, Object> blockchainData = objectMapper.readValue(
-                    latestFile.get().toFile(),
-                    new TypeReference<Map<String, Object>>() {}
-                );
-
-                // Extract version
-                this.chainVersion = ((Number) blockchainData.get("version")).longValue();
-
-                // Extract blocks
-                List<Block> loadedBlocks = objectMapper.convertValue(
-                    blockchainData.get("blocks"),
-                    new TypeReference<List<Block>>() {}
-                );
-
-                // Validate the loaded chain
-                if (validateLoadedChain(loadedBlocks)) {
-                    chain.clear();
-                    chain.addAll(loadedBlocks);
-                    System.out.println("Loaded blockchain version " + chainVersion + 
-                                     " with " + chain.size() + " blocks");
-                } else {
-                    System.err.println("Loaded chain validation failed. Starting fresh.");
-                    chain.clear();
-                    chainVersion = 0;
+                String jsonContent = Files.readString(latestFile.get(), StandardCharsets.UTF_8);
+                // Parse version
+                Pattern versionPattern = Pattern.compile("\"version\":\\s*(\\d+)");
+                Matcher versionMatcher = versionPattern.matcher(jsonContent);
+                if (versionMatcher.find()) {
+                    this.chainVersion = Long.parseLong(versionMatcher.group(1));
                 }
+
+                // Parse blocks
+                chain.clear();
+                Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"]*)\",\\s*\"currentHash\":\\s*\"([^\"]*)\",\\s*\"timestamp\":\\s*\"([^\"]*)\",\\s*\"validatorSignature\":\\s*\"([^\"]*)\",\\s*\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
+                Matcher blockMatcher = blockPattern.matcher(jsonContent);
+
+                while (blockMatcher.find()) {
+                    int blockId = Integer.parseInt(blockMatcher.group(1));
+                    String previousHash = blockMatcher.group(2);
+                    String currentHash = blockMatcher.group(3);
+                    String timestamp = blockMatcher.group(4);
+                    String validatorSignature = blockMatcher.group(5);
+                    String transactionJson = blockMatcher.group(6);
+
+                    // Parse transaction
+                    Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"]*)\",\\s*\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"]*)\",\\s*\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"]*)\",\\s*\"signature\":\\s*\"([^\"]*)\"");
+                    Matcher txMatcher = txPattern.matcher(transactionJson);
+
+                    if (txMatcher.find()) {
+                        Transaction transaction = new Transaction();
+                        transaction.setId(Integer.parseInt(txMatcher.group(1)));
+                        transaction.setSenderId(Integer.parseInt(txMatcher.group(2)));
+                        transaction.setReceiverKey(txMatcher.group(3));
+                        transaction.setAmount(Double.parseDouble(txMatcher.group(4)));
+                        transaction.setStatus(TransactionStatus.valueOf(txMatcher.group(5)));
+                        transaction.setBlockId(Integer.parseInt(txMatcher.group(6)));
+                        transaction.setCreatedAt(LocalDateTime.parse(txMatcher.group(7)));
+                        transaction.setSignature(txMatcher.group(8));
+
+                        Block block = new Block(blockId, previousHash, transaction, validatorSignature);
+                        block.setCurrentHash(currentHash);
+                        block.setTimestamp(LocalDateTime.parse(timestamp));
+                        chain.add(block);
+                    }
+                }
+
+                System.out.println("Loaded blockchain version " + chainVersion + " with " + chain.size() + " blocks");
             }
         } catch (IOException e) {
             System.err.println("Error loading blockchain: " + e.getMessage());
-            chain.clear();
-            chainVersion = 0;
+            e.printStackTrace();
         }
+    }
+
+    private long extractVersion(String filename) {
+        try {
+            // Extract version number from filename (blockchain_v123.json -> 123)
+            Pattern pattern = Pattern.compile("blockchain_v(\\d+)\\.json");
+            Matcher matcher = pattern.matcher(filename);
+            if (matcher.find()) {
+                return Long.parseLong(matcher.group(1));
+            }
+        } catch (Exception e) {
+            System.err.println("Error extracting version from filename: " + filename + " - " + e.getMessage());
+        }
+        return 0;
     }
 
     private void cleanupOldVersions(Path storageDir, int keepCount) {
         try {
+            if (!Files.exists(storageDir)) {
+                return;
+            }
+
             // Get all blockchain files
             List<Path> versionFiles = Files.list(storageDir)
                 .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
@@ -469,22 +532,17 @@ public class BlockChain {
             // Delete old versions
             if (versionFiles.size() > keepCount) {
                 for (int i = keepCount; i < versionFiles.size(); i++) {
-                    Files.deleteIfExists(versionFiles.get(i));
-                    System.out.println("Deleted old version: " + versionFiles.get(i));
+                    try {
+                        Files.deleteIfExists(versionFiles.get(i));
+                        System.out.println("Deleted old version: " + versionFiles.get(i));
+                    } catch (IOException e) {
+                        System.err.println("Error deleting old version: " + versionFiles.get(i) + " - " + e.getMessage());
+                    }
                 }
             }
         } catch (IOException e) {
             System.err.println("Error cleaning up old versions: " + e.getMessage());
         }
-    }
-
-    private long extractVersion(String filename) {
-        Pattern pattern = Pattern.compile("blockchain_v(\\d+)\\.json");
-        Matcher matcher = pattern.matcher(filename);
-        if (matcher.find()) {
-            return Long.parseLong(matcher.group(1));
-        }
-        return 0;
     }
 
     public synchronized void notifyObservers() {
@@ -607,7 +665,7 @@ public class BlockChain {
 
     private void initializeStorage() {
         try {
-            Path storagePath = Paths.get(STORAGE_DIR);
+            Path storagePath = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
             if (!Files.exists(storagePath)) {
                 Files.createDirectories(storagePath);
                 System.out.println("Created blockchain storage directory: " + storagePath.toAbsolutePath());
