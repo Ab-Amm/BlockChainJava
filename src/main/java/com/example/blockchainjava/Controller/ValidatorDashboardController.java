@@ -914,7 +914,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         return userDAO.getClientFromDatabase(userId); // Adjust this based on your actual DAO implementation
     }
     @FXML
-    private void updateClientBalance() {
+    private void updateClientBalance() throws Exception {
         // Récupération des données de l'interface utilisateur
         String clientIdText = clientIdField.getText();
         String balanceText = clientBalanceField.getText();
@@ -942,7 +942,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
 
         // Trouver l'utilisateur avec clientId
-        User user = userDAO.findUserById(clientId); // Utiliser le DAO pour trouver l'utilisateur
+        Client user = userDAO.getClientFromDatabase(clientId); // Utiliser le DAO pour trouver l'utilisateur
         if (user == null) {
             showError("Update Error", "User not found.");
             return;
@@ -950,9 +950,10 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
         // Vérification du solde de l'administrateur
         User currentUser = Session.getCurrentUser();
+        this.validator = userDAO.getValidatorFromDatabase(currentUser.getId());
         double adjustmentAmount = newBalance - user.getBalance();
 
-        if (adjustmentAmount > currentUser.getBalance()) {
+        if (adjustmentAmount > validator.getBalance()) {
             showError("Transaction Error", "Insufficient balance in the administrator's account.");
             return;
         }
@@ -960,7 +961,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         // Vérification du solde du validateur
         if (adjustmentAmount < 0) {
             // If the adjustment is negative (client balance decreases), check if the validator has enough funds
-            if (Math.abs(adjustmentAmount) > currentUser.getBalance()) {
+            if (Math.abs(adjustmentAmount) > validator.getBalance()) {
                 showError("Transaction Error", "Insufficient balance in the validator's account.");
                 return;
             }
@@ -968,32 +969,24 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
         // Création de la transaction
         Transaction transaction = new Transaction();
-        transaction.setSenderId(currentUser.getId());
+        transaction.setSenderId(validator.getId());
         transaction.setReceiverKey(user.getPublicKey()); // Clé publique de l'utilisateur (récepteur)
         transaction.setAmount(adjustmentAmount);
-        transaction.setStatus(TransactionStatus.VALIDATED); // Valider automatiquement
-        transaction.setCreatedAt(LocalDateTime.now());
+        transaction.setStatus(TransactionStatus.VALIDATED);
+        String signature = validator.sign(transaction , this.validator);
+        transaction.setSignature(signature);
         transactionDAO.saveTransaction(transaction);
 
-        // Signature de la transaction
-        try {
-            String dataToSign = transaction.getDataToSign();
-            PrivateKey privateKey = SecurityUtils.decodePrivateKey(currentUser.getPrivateKey());
-            String signature = generateSignature(transaction, privateKey);
-            transaction.setSignature(signature);
+        blockchain.addBlock(transaction, signature);
 
-            // Ajouter le bloc à la blockchain
-            blockchain.addBlock(transaction, signature);
 
-            // Mise à jour du solde de l'utilisateur
             user.setBalance(newBalance);
             userDAO.updateUserBalance(user, newBalance);
 
             // Si l'ajustement est négatif, soustraire du solde du validateur
             if (adjustmentAmount < 0) {
-                Validator validator = (Validator) currentUser; // Assurer que currentUser est un Validator
-                double newValidatorBalance = currentUser.getBalance() + Math.abs(adjustmentAmount);
-                currentUser.setBalance(newValidatorBalance);
+                double newValidatorBalance = validator.getBalance() + Math.abs(adjustmentAmount);
+                validator.setBalance(newValidatorBalance);
                 userDAO.updateValidatorBalance(validator, newValidatorBalance); // Mise à jour du solde du validateur
             }
 
@@ -1001,10 +994,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             showSuccess("Balance updated successfully.", "The balance has been updated and the transaction is complete.");
             updateUserTableView(); // Actualisation de la table des utilisateurs
 
-        } catch (Exception e) {
-            showError("Transaction Error", "An error occurred during the transaction process.");
-            e.printStackTrace();
-        }
     }
 
     public String generateSignature(Transaction transaction, PrivateKey privateKey) {

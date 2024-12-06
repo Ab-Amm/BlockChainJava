@@ -16,6 +16,8 @@ import java.security.PublicKey;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import com.example.blockchainjava.Util.Security.HashUtil;
 import com.example.blockchainjava.Util.Security.SecurityUtils;
@@ -66,12 +68,14 @@ public class BlockChain {
                 // Vérifier l'intégrité du bloc
                 if (!block.getCurrentHash().equals(recalculatedHash)) {
                     System.err.println("Le hash du bloc ID " + block.getBlockId() + " est invalide.");
+                    restoreBlockData(block);
                     return false;
                 }
 
                 // Vérifier que le previous_hash correspond au current_hash du bloc précédent
                 if (!block.getPreviousHash().equals(previousHash)) {
                     System.err.println("Le previous_hash du bloc ID " + block.getBlockId()  + " est invalide.");
+                    restoreBlockData(block);
                     return false;
                 }
 
@@ -90,6 +94,7 @@ public class BlockChain {
 
                     if (!isSignatureValid) {
                         System.err.println("La signature de la transaction ID " + transaction.getId() + " est invalide.");
+                        restoreTransactionData(transaction);
                         return false;
                     }
 
@@ -110,6 +115,135 @@ public class BlockChain {
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Erreur lors de la vérification de la blockchain : " + e.getMessage());
+            return false;
+        }
+    }
+    private void restoreTransactionData(Transaction transaction) {
+        try {
+            System.out.println("Restauration des données de la transaction ID " + transaction.getId());
+
+            // Récupérer la transaction originale depuis la base de données (sauvegarde initiale)
+            Transaction originalTransaction = transactionDAO.getTransactionById(transaction.getId());
+
+            if (originalTransaction != null) {
+                // Décoder la clé publique de l'expéditeur
+                PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
+                        userDAO.getPublicKeyByUserId(originalTransaction.getSenderId())
+                );
+
+                // Vérifier la signature de la transaction
+                boolean isSignatureValid = SecurityUtils.verifySignature(
+                        originalTransaction.getDataToSign(),  // Les données à signer doivent être les mêmes
+                        originalTransaction.getSignature(),
+                        senderPublicKey
+                );
+
+                if (!isSignatureValid) {
+                    System.err.println("La signature de la transaction ID " + transaction.getId() + " est invalide.");
+                    return;  // Ne pas restaurer la transaction si la signature est invalide
+                }
+
+                // Restaurer les valeurs initiales de la transaction
+                transaction.setSenderId(originalTransaction.getSenderId());
+                transaction.setReceiverKey(originalTransaction.getReceiverKey());
+                transaction.setAmount(originalTransaction.getAmount());
+                transaction.setSignature(originalTransaction.getSignature());
+                transaction.setCreatedAt(originalTransaction.getCreatedAt());
+
+                // Mettre à jour la transaction restaurée dans la base de données
+                transactionDAO.updateTransaction(transaction);
+
+                System.out.println("Transaction restaurée avec succès ID " + transaction.getId());
+            } else {
+                System.err.println("Impossible de restaurer la transaction ID " + transaction.getId() + ": introuvable.");
+            }
+
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la restauration de la transaction ID " + transaction.getId() + ": " + e.getMessage());
+        }
+    }
+
+
+    private void restoreBlockData(Block block) {
+        System.out.println("Restoration du bloc ID " + block.getBlockId());
+        try {
+            // Récupérer les transactions liées au bloc depuis la base de données
+            List<Transaction> transactions = transactionDAO.getTransactionsByBlockId(block.getBlockId());
+
+            // Vérifier et restaurer chaque transaction si nécessaire
+            List<Transaction> validTransactions = new ArrayList<>();
+            for (Transaction transaction : transactions) {
+                if (validateTransaction(transaction)) {
+                    validTransactions.add(transaction);
+                } else {
+                    System.out.println("Restauration de la transaction ID " + transaction.getId());
+                    restoreTransactionData(transaction);
+                    Transaction restoredTransaction = transactionDAO.getTransactionById(transaction.getId());
+                    if (restoredTransaction != null) {
+                        validTransactions.add(restoredTransaction);
+                    }
+                }
+            }
+
+            // Recalculer le hash du bloc à partir des transactions valides
+            String recalculatedHash = HashUtil.sha256(
+                    block.getPreviousHash() +
+                            validTransactions.stream()
+                                    .map(Transaction::getId)
+                                    .map(String::valueOf) // Assurez-vous que chaque ID est converti en String
+                                    .collect(Collectors.joining(",")) + // Utilisation d'une virgule comme séparateur entre les IDs
+                            block.getValidatorSignature()
+            );
+
+
+            // Mettre à jour le hash du bloc dans la base de données si nécessaire
+            if (!recalculatedHash.equals(block.getCurrentHash())) {
+                System.out.println("Mise à jour du hash du bloc ID " + block.getBlockId());
+                block.setCurrentHash(recalculatedHash);
+                blockDAO.updateBlock(block);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la restauration du bloc ID " + block.getBlockId() + ": " + e.getMessage());
+        }
+    }
+    public boolean validateTransaction(Transaction transaction) {
+        try {
+            // Vérifier la signature de la transaction
+            PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
+                    userDAO.getPublicKeyByUserId(transaction.getSenderId())
+            );
+            boolean isSignatureValid = SecurityUtils.verifySignature(
+                    transaction.getDataToSign(),
+                    transaction.getSignature(),
+                    senderPublicKey
+            );
+
+            if (!isSignatureValid) {
+                System.err.println("La signature de la transaction ID " + transaction.getId() + " est invalide.");
+                return false;
+            }
+
+            // Vérifier que le solde de l'expéditeur est suffisant
+            User sender = userDAO.findUserById(transaction.getSenderId());
+            if (sender.getBalance() < transaction.getAmount()) {
+                System.err.println("Le solde de l'expéditeur pour la transaction ID " + transaction.getId() + " est insuffisant.");
+                return false;
+            }
+
+            // Vérifier que la transaction n'est pas déjà validée ou annulée
+            if (transaction.getStatus() != TransactionStatus.PENDING) {
+                System.err.println("La transaction ID " + transaction.getId() + " n'est pas dans un état valide (elle est déjà " + transaction.getStatus() + ").");
+                return false;
+            }
+
+            // Si tout est valide
+            System.out.println("La transaction ID " + transaction.getId() + " est valide.");
+            return true;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Erreur lors de la validation de la transaction ID " + transaction.getId() + ": " + e.getMessage());
             return false;
         }
     }
