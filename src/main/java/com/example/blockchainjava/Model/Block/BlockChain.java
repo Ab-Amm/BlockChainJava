@@ -751,6 +751,30 @@ public class BlockChain {
         this.chainVersion = version;
     }
 
+    public synchronized void synchronizeWith(BlockChain otherChain) {
+        System.out.println("🔄 Starting blockchain synchronization");
+        try {
+            if (otherChain.getVersion() > this.chainVersion) {
+                System.out.println("📊 Other chain version " + otherChain.getVersion() + 
+                                 " is newer than local version " + this.chainVersion);
+                
+                // Clear and update chain data
+                this.chain.clear();
+                this.chain.addAll(otherChain.getBlocks());
+                this.chainVersion = otherChain.getVersion();
+                
+                // Save synchronized chain to storage
+                saveToLocalStorage();
+                
+                System.out.println("✅ Successfully synchronized to version " + this.chainVersion);
+            } else {
+                System.out.println("ℹ️ Local chain is already up to date");
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error during chain synchronization: " + e.getMessage());
+            throw new RuntimeException("Failed to synchronize blockchain", e);
+        }
+    }
 
     // Static inner class for chain comparison results
     public static class CompareResult {

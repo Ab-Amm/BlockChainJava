@@ -669,4 +669,70 @@ public class UserDAO {
         }
         return publicKey;
     }
+
+    public void markValidatorNeedsUpdate(int validatorId, long requiredVersion) {
+        String sql = "UPDATE validators SET pending_update_version = ? WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, requiredVersion);
+            stmt.setInt(2, validatorId);
+            stmt.executeUpdate();
+            System.out.println("[Database] ✅ Marked validator " + validatorId + 
+                             " for update to version " + requiredVersion);
+        } catch (SQLException e) {
+            System.err.println("[Database] ❌ Error marking validator for update: " + e.getMessage());
+            throw new RuntimeException("Failed to mark validator for update", e);
+        }
+    }
+
+    public Long getPendingUpdateVersion(int validatorId) {
+        String sql = "SELECT pending_update_version FROM validators WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, validatorId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                Long version = rs.getLong("pending_update_version");
+                if (rs.wasNull()) {
+                    return null;
+                }
+                return version;
+            }
+            return null;
+        } catch (SQLException e) {
+            System.err.println("[Database] ❌ Error getting pending update version: " + e.getMessage());
+            throw new RuntimeException("Failed to get pending update version", e);
+        }
+    }
+
+    public void clearPendingUpdate(int validatorId) {
+        String sql = "UPDATE validators SET pending_update_version = NULL WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, validatorId);
+            stmt.executeUpdate();
+            System.out.println("[Database] ✅ Cleared pending update for validator " + validatorId);
+        } catch (SQLException e) {
+            System.err.println("[Database] ❌ Error clearing pending update: " + e.getMessage());
+            throw new RuntimeException("Failed to clear pending update", e);
+        }
+    }
+
+    public List<Validator> getAllValidators() {
+        List<Validator> validators = new ArrayList<>();
+        String sql = "SELECT * FROM validators";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Validator validator = new Validator(
+                    rs.getInt("id"),
+                    rs.getString("username"),
+                    rs.getDouble("balance")
+                );
+                validator.setActive(rs.getBoolean("is_active"));
+                validators.add(validator);
+            }
+            return validators;
+        } catch (SQLException | NoSuchAlgorithmException e) {
+            System.err.println("[Database] ❌ Error getting all validators: " + e.getMessage());
+            throw new RuntimeException("Failed to get all validators", e);
+        }
+    }
 }

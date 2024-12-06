@@ -222,6 +222,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 5, // period
                 java.util.concurrent.TimeUnit.MINUTES
             );
+            
+            // Check for pending updates on startup
+            checkPendingUpdates();
         } catch (Exception e) {
             showError("Initialization Error", "An error occurred during initialization: " + e.getMessage());
         }
@@ -913,24 +916,87 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
 
     private void synchronizeWithOtherValidators() {
-        List<Validator> otherValidators = getOtherValidators();
+        System.out.println("[Validator] Starting validator synchronization...");
+        try {
+            // Get all validators from database
+            List<Validator> allValidators = userDAO.getAllValidators();
+            System.out.println("[Validator] Found " + allValidators.size() + " total validators");
 
-        for (Validator otherValidator : otherValidators) {
-            if (isValidatorAvailable(otherValidator)) {
-                // Compare chain versions
-                BlockChain.CompareResult compareResult = blockchain.compareChain(
-                        otherValidator.getBlockchain().getBlocks(),
-                        otherValidator.getBlockchain().getVersion()
-                );
+            // Get active validators (those who are currently connected)
+            List<Validator> activeValidators = allValidators.stream()
+                .filter(v -> v.isActive())
+                .collect(Collectors.toList());
+            System.out.println("[Validator] Active validators: " + activeValidators.size());
 
-                if (compareResult.isNeedsUpdate()) {
-                    // Our chain is behind, update from database
-                    blockchain.loadFromDatabase();
-                    blockchain.saveToLocalStorage();
-                    updateBlockchainView();
-                    break;
+            // Get offline validators
+            List<Validator> offlineValidators = allValidators.stream()
+                .filter(v -> !v.isActive())
+                .collect(Collectors.toList());
+            System.out.println("[Validator] Offline validators: " + offlineValidators.size());
+
+            // Find the latest version among active validators
+            long latestVersion = activeValidators.stream()
+                .map(v -> v.getBlockchain().getVersion())
+                .max(Long::compareTo)
+                .orElse(0L);
+            System.out.println("[Validator] Latest blockchain version: " + latestVersion);
+
+            // Update database with latest version for offline validators
+            for (Validator offlineValidator : offlineValidators) {
+                try {
+                    System.out.println("[Validator] Marking version update needed for offline validator: " + offlineValidator.getId());
+                    userDAO.markValidatorNeedsUpdate(offlineValidator.getId(), latestVersion);
+                } catch (Exception e) {
+                    System.err.println("[Validator] Error marking validator for update: " + e.getMessage());
                 }
             }
+
+            // Check if this validator needs to sync
+            if (blockchain.getVersion() < latestVersion) {
+                System.out.println("[Validator] Local blockchain needs update. Current version: " + 
+                                 blockchain.getVersion() + ", Latest version: " + latestVersion);
+                
+                // Find a validator with the latest version
+                Optional<Validator> upToDateValidator = activeValidators.stream()
+                    .filter(v -> v.getBlockchain().getVersion() == latestVersion)
+                    .findFirst();
+
+                if (upToDateValidator.isPresent()) {
+                    System.out.println("[Validator] Synchronizing with validator: " + upToDateValidator.get().getId());
+                    blockchain.synchronizeWith(upToDateValidator.get().getBlockchain());
+                }
+            }
+
+            System.out.println("[Validator] Synchronization complete");
+        } catch (Exception e) {
+            System.err.println("[Validator] Error during synchronization: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void checkPendingUpdates() {
+        System.out.println("[Validator] Checking for pending updates...");
+        try {
+            // Get pending update version for this validator
+            Long pendingVersion = userDAO.getPendingUpdateVersion(validator.getId());
+            
+            if (pendingVersion != null && pendingVersion > blockchain.getVersion()) {
+                System.out.println("[Validator] Pending update found. Current version: " + 
+                                 blockchain.getVersion() + ", Required version: " + pendingVersion);
+                
+                // Load latest blockchain from database
+                blockchain.loadFromDatabase();
+                
+                // Clear pending update flag
+                userDAO.clearPendingUpdate(validator.getId());
+                
+                System.out.println("[Validator] Successfully updated to version: " + blockchain.getVersion());
+            } else {
+                System.out.println("[Validator] No pending updates found");
+            }
+        } catch (Exception e) {
+            System.err.println("[Validator] Error checking pending updates: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
