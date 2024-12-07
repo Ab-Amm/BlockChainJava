@@ -367,78 +367,105 @@ public class BlockChain {
         System.out.println("[BlockChain] 📊 Current chain state: Version=" + chainVersion + ", Blocks=" + chain.size());
         
         synchronized(chainLock) {
-            try {
-                // Ensure storage directory exists
-                Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
-                if (!Files.exists(storageDir)) {
-                    Files.createDirectories(storageDir);
-                    System.out.println("[BlockChain] 📁 Created storage directory: " + storageDir);
+            int maxRetries = 3;
+            int retryDelayMs = 1000; // 1 second delay between retries
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    // Ensure storage directory exists
+                    Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
+                    if (!Files.exists(storageDir)) {
+                        Files.createDirectories(storageDir);
+                        System.out.println("[BlockChain] 📁 Created storage directory: " + storageDir);
+                    }
+
+                    // Create JSON string manually
+                    StringBuilder jsonBuilder = new StringBuilder();
+                    jsonBuilder.append("{\n");
+                    jsonBuilder.append("  \"version\": ").append(chainVersion).append(",\n");
+                    jsonBuilder.append("  \"timestamp\": ").append(System.currentTimeMillis()).append(",\n");
+                    jsonBuilder.append("  \"blocks\": [\n");
+
+                    // Add blocks
+                    for (int i = 0; i < chain.size(); i++) {
+                        Block block = chain.get(i);
+                        jsonBuilder.append("    {\n");
+                        jsonBuilder.append("      \"blockId\": ").append(block.getBlockId()).append(",\n");
+                        jsonBuilder.append("      \"previousHash\": \"").append(block.getPreviousHash()).append("\",\n");
+                        jsonBuilder.append("      \"currentHash\": \"").append(block.getCurrentHash()).append("\",\n");
+                        jsonBuilder.append("      \"timestamp\": \"").append(block.getTimestamp()).append("\",\n");
+                        jsonBuilder.append("      \"validatorSignature\": \"").append(block.getValidatorSignature()).append("\",\n");
+                        
+                        // Add transaction
+                        Transaction tx = block.getTransaction();
+                        jsonBuilder.append("      \"transaction\": {\n");
+                        jsonBuilder.append("        \"id\": ").append(tx.getId()).append(",\n");
+                        jsonBuilder.append("        \"senderId\": ").append(tx.getSenderId()).append(",\n");
+                        jsonBuilder.append("        \"receiverKey\": \"").append(tx.getReceiverKey()).append("\",\n");
+                        jsonBuilder.append("        \"amount\": ").append(tx.getAmount()).append(",\n");
+                        jsonBuilder.append("        \"status\": \"").append(tx.getStatus()).append("\",\n");
+                        jsonBuilder.append("        \"blockId\": ").append(tx.getBlockId()).append(",\n");
+                        jsonBuilder.append("        \"createdAt\": \"").append(tx.getCreatedAt()).append("\",\n");
+                        jsonBuilder.append("        \"signature\": \"").append(tx.getSignature()).append("\"\n");
+                        jsonBuilder.append("      }\n");
+                        jsonBuilder.append("    }").append(i < chain.size() - 1 ? "," : "").append("\n");
+                    }
+                    
+                    jsonBuilder.append("  ]\n");
+                    jsonBuilder.append("}\n");
+
+                    // Create filename with version
+                    String filename = String.format("blockchain_v%d.json", chainVersion);
+                    Path filePath = storageDir.resolve(filename);
+                    Path tempFile = null;
+
+                    try {
+                        // Create temp file in the same directory
+                        tempFile = Files.createTempFile(storageDir, "temp_", ".json");
+                        
+                        // Write to temporary file
+                        Files.writeString(tempFile, jsonBuilder.toString(), StandardCharsets.UTF_8);
+                        
+                        // Try to delete the target file if it exists
+                        Files.deleteIfExists(filePath);
+                        
+                        // Atomic move with retry
+                        Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE);
+                        
+                        System.out.println("[BlockChain] ✅ Successfully saved blockchain version " + chainVersion);
+                        
+                        // Clean up old versions after successful save
+                        cleanupOldVersions(storageDir, MAX_VERSIONS);
+                        return; // Success - exit the retry loop
+                    } finally {
+                        // Clean up temp file if it still exists
+                        if (tempFile != null) {
+                            try {
+                                Files.deleteIfExists(tempFile);
+                            } catch (IOException e) {
+                                System.err.println("[BlockChain] ⚠️ Could not delete temp file: " + e.getMessage());
+                            }
+                        }
+                    }
+                } catch (IOException e) {
+                    lastException = e;
+                    System.err.println("[BlockChain] ⚠️ Attempt " + attempt + " failed: " + e.getMessage());
+                    
+                    if (attempt < maxRetries) {
+                        try {
+                            Thread.sleep(retryDelayMs * attempt); // Exponential backoff
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException("Interrupted while retrying save operation", ie);
+                        }
+                    }
                 }
-
-                System.out.println("[BlockChain] 🔄 Preparing JSON data for " + chain.size() + " blocks");
-                
-                // Create JSON string manually
-                StringBuilder jsonBuilder = new StringBuilder();
-                jsonBuilder.append("{\n");
-                jsonBuilder.append("  \"version\": ").append(chainVersion).append(",\n");
-                jsonBuilder.append("  \"timestamp\": ").append(System.currentTimeMillis()).append(",\n");
-                jsonBuilder.append("  \"blocks\": [\n");
-
-                // Add blocks
-                for (int i = 0; i < chain.size(); i++) {
-                    Block block = chain.get(i);
-                    System.out.println("[BlockChain] 📦 Processing block " + (i+1) + "/" + chain.size() + 
-                                    " (ID: " + block.getBlockId() + ")");
-                    
-                    jsonBuilder.append("    {\n");
-                    jsonBuilder.append("      \"blockId\": ").append(block.getBlockId()).append(",\n");
-                    jsonBuilder.append("      \"previousHash\": \"").append(block.getPreviousHash()).append("\",\n");
-                    jsonBuilder.append("      \"currentHash\": \"").append(block.getCurrentHash()).append("\",\n");
-                    jsonBuilder.append("      \"timestamp\": \"").append(block.getTimestamp()).append("\",\n");
-                    jsonBuilder.append("      \"validatorSignature\": \"").append(block.getValidatorSignature()).append("\",\n");
-                    
-                    // Add transaction
-                    Transaction tx = block.getTransaction();
-                    jsonBuilder.append("      \"transaction\": {\n");
-                    jsonBuilder.append("        \"id\": ").append(tx.getId()).append(",\n");
-                    jsonBuilder.append("        \"senderId\": ").append(tx.getSenderId()).append(",\n");
-                    jsonBuilder.append("        \"receiverKey\": \"").append(tx.getReceiverKey()).append("\",\n");
-                    jsonBuilder.append("        \"amount\": ").append(tx.getAmount()).append(",\n");
-                    jsonBuilder.append("        \"status\": \"").append(tx.getStatus()).append("\",\n");
-                    jsonBuilder.append("        \"blockId\": ").append(tx.getBlockId()).append(",\n");
-                    jsonBuilder.append("        \"createdAt\": \"").append(tx.getCreatedAt()).append("\",\n");
-                    jsonBuilder.append("        \"signature\": \"").append(tx.getSignature()).append("\"\n");
-                    jsonBuilder.append("      }\n");
-                    
-                    jsonBuilder.append("    }").append(i < chain.size() - 1 ? "," : "").append("\n");
-                }
-                
-                jsonBuilder.append("  ]\n");
-                jsonBuilder.append("}\n");
-
-                // Create filename with version
-                String filename = String.format("blockchain_v%d.json", chainVersion);
-                Path filePath = storageDir.resolve(filename);
-                Path tempFile = Files.createTempFile(storageDir, "temp_", ".json");
-
-                System.out.println("[BlockChain] ✍️ Writing to temporary file: " + tempFile);
-                // Write to temporary file first
-                Files.writeString(tempFile, jsonBuilder.toString(), StandardCharsets.UTF_8);
-
-                System.out.println("[BlockChain] 🔄 Moving temporary file to final location");
-                // Atomic move to final location
-                Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-
-                System.out.println("[BlockChain] ✅ Successfully saved blockchain version " + chainVersion + " to " + filePath);
-
-                // Cleanup old versions
-                System.out.println("[BlockChain] 🧹 Starting cleanup of old versions...");
-                cleanupOldVersions(storageDir, MAX_VERSIONS);
-            } catch (IOException e) {
-                System.err.println("[BlockChain] ❌ Error saving blockchain: " + e.getMessage());
-                e.printStackTrace();
-                throw new RuntimeException("Failed to save blockchain to storage", e);
             }
+            
+            // If we get here, all retries failed
+            System.err.println("[BlockChain] ❌ Failed to save blockchain after " + maxRetries + " attempts");
+            throw new RuntimeException("Failed to save blockchain to storage", lastException);
         }
     }
 
