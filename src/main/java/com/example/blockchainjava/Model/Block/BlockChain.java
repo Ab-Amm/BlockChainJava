@@ -513,6 +513,8 @@ public class BlockChain {
 
             // Mettre à jour la base de données avec les données correctes
             blockDAO.updateBlock(localBlock);
+            chain.clear();
+            loadChainFromDatabase();
             System.out.println("Bloc ID " + block.getBlockId() + " restauré avec succès.");
             return true;
         } catch (Exception e) {
@@ -531,6 +533,8 @@ public class BlockChain {
 
             // Mettre à jour la base de données avec les données correctes
             transactionDAO.updateTransaction(localTransaction);
+            chain.clear();
+            loadChainFromDatabase();
             System.out.println("Transaction ID " + transaction.getId() + " restaurée avec succès.");
             return true;
         } catch (Exception e) {
