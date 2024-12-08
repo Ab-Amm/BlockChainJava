@@ -98,12 +98,8 @@ public class MainController {
             }
 
             // Create new user based on role
-            User newUser = switch (role) {
-                case CLIENT -> new Client(username, password);
-                case VALIDATOR -> new Validator(username, password);  // Ajouter le cas pour VALIDATOR
-                case ADMIN -> new Admin(username, password);  // Ajouter le cas pour ADMIN si ce n'est pas déjà le cas
-                default -> throw new IllegalStateException("Unexpected role: " + role);
-            };
+            User newUser = new Client(username, password);
+            System.out.println("voici new user:"+ newUser);
 
 
             // Save user to database

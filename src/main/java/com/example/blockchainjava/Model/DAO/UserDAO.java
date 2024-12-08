@@ -130,6 +130,7 @@ public class UserDAO {
             stmt.setTimestamp(3, Timestamp.valueOf(user.getCreatedAt()));
             stmt.setString(4, hashedPassword);
             stmt.setString(5, user.getPublicKey());
+            System.out.println("voici private key :"+ user.getPrivateKey());
             stmt.setString(6, EncryptionUtil.encrypt(user.getPrivateKey()));
             stmt.executeUpdate();
         } catch (SQLException e) {
@@ -430,17 +431,6 @@ public class UserDAO {
         return clientList;
     }
 
-    public void registerValidator(Validator validator) {
-        // Code pour enregistrer le validateur dans la base de données.
-        // Cela pourrait inclure l'ajout de l'utilisateur en tant que validateur, par exemple.
-        try {
-            // Supposons que vous avez une méthode pour enregistrer un utilisateur dans la base de données
-            saveUser(validator);  // Utilisez votre méthode d'enregistrement utilisateur ici
-        } catch (Exception e) {
-            e.printStackTrace();
-            // Gérer l'exception selon les besoins
-        }
-    }
     public void updateValidatorBalance(Validator validator, double newBalance) {
         String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'VALIDATOR'";
 

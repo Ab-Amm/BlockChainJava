@@ -27,6 +27,8 @@ public class Client extends User {
         super(username, password, UserRole.CLIENT);
         this.balance = 0.0;
         this.transactions = new ArrayList<>();
+        this.privateKey=super.getPrivateKey();
+        this.publicKey=super.getPublicKey();
     }
     public String sign(Transaction transaction ,Client client) throws Exception {
         String dataToSign = Transaction.generateDataToSign(

@@ -157,8 +157,22 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 userDAO.updateUserConnection(validator.getId(), false);
             }
         }));
+       //updateValidatorVersion(blockchain.getChainVersion());
     }
+    private void updateValidatorVersion(long version) {
+        String updateSql  = "UPDATE validators SET pending_update_version = ?";
 
+        try (PreparedStatement stmt = connection.prepareStatement(updateSql)) {
+
+            stmt.setLong(1, version);
+            int rowsUpdated = stmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("[BlockChain] ✅ Validator version updated to " + version);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update transaction status and block_id", e);
+        }
+    }
     @FXML
     public void initialize() {
         try {

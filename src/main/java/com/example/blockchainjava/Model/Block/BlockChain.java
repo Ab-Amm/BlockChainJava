@@ -43,7 +43,9 @@ public class BlockChain {
         List<Block> blocksFromDB = blockDAO.getAllBlocks();
         chain.addAll(blocksFromDB);
     }
-
+    public long getChainVersion() {
+        return chainVersion;
+    }
     public BlockChain() {
         this.chain = new ArrayList<>();
         this.blockDAO = new BlockDAO();
@@ -51,21 +53,8 @@ public class BlockChain {
         this.connection = DatabaseConnection.getConnection();
         this.transactionDAO = new TransactionDAO();
         this.userDAO = new UserDAO();
-        
-        // Create storage directory if it doesn't exist
-        initializeStorage();
-        
-        // First try to load from local storage
-        loadFromLocalStorage();
-        
-        // If local storage is empty, try loading from database
-        if (chain.isEmpty()) {
-            loadFromDatabase();
-            // Save to local storage after loading from database
-            if (!chain.isEmpty()) {
-                saveToLocalStorage();
-            }
-        }
+        loadFromDatabase();
+
     }
 
     private String calculateBlockHash(Block block) {
@@ -77,72 +66,6 @@ public class BlockChain {
         );
     }
 
-    public boolean verifyBlockchain() {
-        try {
-            List<Block> blockchain = blockDAO.getAllBlocks(); // Récupérer tous les blocs depuis la base de données
-            if (blockchain.isEmpty()) {
-                System.out.println("La blockchain est vide.");
-                return true;
-            }
-
-            String previousHash = "0"; // Hash initial pour le premier bloc
-            for (Block block : blockchain) {
-                // Recalculer le hachage actuel
-                String recalculatedHash = block.calculateHash();
-
-                // Vérifier l'intégrité du bloc
-                if (!block.getCurrentHash().equals(recalculatedHash)) {
-                    System.err.println("Le hash du bloc ID " + block.getBlockId() + " est invalide.");
-                    restoreBlockData(block);
-                    return false;
-                }
-
-                // Vérifier que le previous_hash correspond au current_hash du bloc précédent
-                if (!block.getPreviousHash().equals(previousHash)) {
-                    System.err.println("Le previous_hash du bloc ID " + block.getBlockId()  + " est invalide.");
-                    restoreBlockData(block);
-                    return false;
-                }
-
-                // Vérifier les transactions dans le bloc
-                List<Transaction> transactions = transactionDAO.getTransactionsByBlockId(block.getBlockId());
-                for (Transaction transaction : transactions) {
-                    // Vérifier la signature de la transaction
-                    PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
-                            userDAO.getPublicKeyByUserId(transaction.getSenderId())
-                    );
-                    boolean isSignatureValid = SecurityUtils.verifySignature(
-                            transaction.getDataToSign(),
-                            transaction.getSignature(),
-                            senderPublicKey
-                    );
-
-                    if (!isSignatureValid) {
-                        System.err.println("La signature de la transaction ID " + transaction.getId() + " est invalide.");
-                        restoreTransactionData(transaction);
-                        return false;
-                    }
-
-                    // Vérifier que le solde de l'expéditeur est suffisant
-                    User sender = userDAO.findUserById(transaction.getSenderId());
-                    if (sender.getBalance() < transaction.getAmount()) {
-                        System.err.println("Le solde de l'expéditeur pour la transaction ID " + transaction.getId() + " est insuffisant.");
-                        return false;
-                    }
-                }
-
-                // Mettre à jour le hash précédent pour le prochain bloc
-                previousHash = block.getCurrentHash();
-            }
-
-            System.out.println("La blockchain est valide.");
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("Erreur lors de la vérification de la blockchain : " + e.getMessage());
-            return false;
-        }
-    }
 
     private void restoreTransactionData(Transaction transaction) {
         try {
@@ -293,7 +216,6 @@ public class BlockChain {
             try {
                 // Save to both database and local storage
                 blockDAO.saveBlock(newBlock);
-                saveToLocalStorage();
                 
                 updateTransactionWithBlockIdAndStatus(transaction, newBlock);
 
@@ -303,7 +225,7 @@ public class BlockChain {
                 if (!balancesUpdated) {
                     throw new RuntimeException("Failed to update user balances after adding block.");
                 }
-
+                saveToLocalStorage();
                 notifyObservers();
             } catch (Exception e) {
                 // Rollback on failure
@@ -329,7 +251,7 @@ public class BlockChain {
             stmt.setString(5, TransactionStatus.VALIDATED.name());
             stmt.setString(6,transaction.getSignature());
             stmt.setInt(7, transaction.getId());  // id (transaction ID)
-
+            transaction.setBlockId(newBlock.getBlockId());
             int rowsUpdated = stmt.executeUpdate();  // Utiliser executeUpdate() pour les requêtes de mise à jour
 
             if (rowsUpdated > 0) {
@@ -552,6 +474,217 @@ public class BlockChain {
             e.printStackTrace();
         }
     }
+    private void updateValidatorVersion(long version) {
+        String updateSql  = "UPDATE validators SET pending_update_version = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(updateSql)) {
+
+            stmt.setLong(1, version);
+            int rowsUpdated = stmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("[BlockChain] ✅ Validator version updated to " + version);
+            }
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to update transaction status and block_id", e);
+            }
+    }
+    public boolean verifyBlockchain() {
+        try {
+            List<Block> blockchain = blockDAO.getAllBlocks(); // Récupérer tous les blocs depuis la base de données
+            if (blockchain.isEmpty()) {
+                System.out.println("La blockchain est vide.");
+                return true;
+            }
+
+            String previousHash = "0"; // Hash initial pour le premier bloc
+            for (Block block : blockchain) {
+                // Recalculer le hachage actuel
+                String recalculatedHash = block.calculateHash();
+
+                // Vérifier l'intégrité du bloc
+                if (!block.getCurrentHash().equals(recalculatedHash)) {
+                    System.err.println("Le hash du bloc ID " + block.getBlockId() + " est invalide.");
+                    //restoreBlockData(block);
+                    return false;
+                }
+
+                // Vérifier que le previous_hash correspond au current_hash du bloc précédent
+                if (!block.getPreviousHash().equals(previousHash)) {
+                    System.err.println("Le previous_hash du bloc ID " + block.getBlockId()  + " est invalide.");
+                    //restoreBlockData(block);
+                    return false;
+                }
+
+                // Vérifier les transactions dans le bloc
+                List<Transaction> transactions = transactionDAO.getTransactionsByBlockId(block.getBlockId());
+                for (Transaction transaction : transactions) {
+                    // Vérifier la signature de la transaction
+                    PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
+                            userDAO.getPublicKeyByUserId(transaction.getSenderId())
+                    );
+                    boolean isSignatureValid = SecurityUtils.verifySignature(
+                            transaction.getDataToSign(),
+                            transaction.getSignature(),
+                            senderPublicKey
+                    );
+
+                    if (!isSignatureValid) {
+                        System.err.println("La signature de la transaction ID " + transaction.getId() + " est invalide.");
+                        //restoreTransactionData(transaction);
+                        return false;
+                    }
+
+                    // Vérifier que le solde de l'expéditeur est suffisant
+                    User sender = userDAO.findUserById(transaction.getSenderId());
+                    if (sender.getBalance() < transaction.getAmount()) {
+                        System.err.println("Le solde de l'expéditeur pour la transaction ID " + transaction.getId() + " est insuffisant.");
+                        return false;
+                    }
+                }
+
+                // Mettre à jour le hash précédent pour le prochain bloc
+                previousHash = block.getCurrentHash();
+            }
+
+            System.out.println("La blockchain est valide.");
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Erreur lors de la vérification de la blockchain : " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean verifyLocalStorageIntegrity() {
+        System.out.println("[BlockChain] 🔍 Starting verification of local storage integrity...");
+        try {
+            Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
+            if (!Files.exists(storageDir)) {
+                System.err.println("[BlockChain] ⚠️ Local storage directory does not exist.");
+                return false;
+            }
+
+            // Find the latest blockchain file
+            Optional<Path> latestFile = Files.list(storageDir)
+                    .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
+                    .max((p1, p2) -> {
+                        long v1 = extractVersion(p1.getFileName().toString());
+                        long v2 = extractVersion(p2.getFileName().toString());
+                        return Long.compare(v1, v2);
+                    });
+
+            if (latestFile.isPresent()) {
+                System.out.println("[BlockChain] 📄 Found latest blockchain file: " + latestFile.get().getFileName());
+                String jsonContent = Files.readString(latestFile.get(), StandardCharsets.UTF_8);
+
+                // Load blockchain from JSON
+                List<Block> loadedChain = parseBlockchainFromJson(jsonContent);
+
+                // Verify each block
+                String previousHash = "0"; // Assuming the first block's previous hash is "0"
+                for (Block block : loadedChain) {
+                    // Check if the block's hash is valid
+                    if (!block.getCurrentHash().equals(block.calculateHash())) {
+                        System.err.println("[BlockChain] ❌ Invalid hash for block ID: " + block.getBlockId());
+                        return false;
+                    }
+
+                    // Check if the previous hash matches
+                    if (!block.getPreviousHash().equals(previousHash)) {
+                        System.err.println("[BlockChain] ❌ Mismatch in previous hash for block ID: " + block.getBlockId());
+                        return false;
+                    }
+
+                    // Verify the transaction in the block
+                    Transaction transaction = block.getTransaction();
+                    if (transaction != null) {
+                        // Verify the transaction's signature
+                        PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
+                                userDAO.getPublicKeyByUserId(transaction.getSenderId())
+                        );
+                        boolean isSignatureValid = SecurityUtils.verifySignature(
+                                transaction.getDataToSign(),
+                                transaction.getSignature(),
+                                senderPublicKey
+                        );
+
+                        if (!isSignatureValid) {
+                            System.err.println("[BlockChain] ❌ Invalid signature for transaction ID: " + transaction.getId());
+                            return false;
+                        }
+
+                        // Verify sender's balance (if applicable)
+                        if (transaction.getSenderId() != null) {
+                            User sender = userDAO.findUserById(transaction.getSenderId());
+                            if (sender.getBalance() < transaction.getAmount()) {
+                                System.err.println("[BlockChain] ❌ Insufficient balance for transaction ID: " + transaction.getId());
+                                return false;
+                            }
+                        }
+                    }
+
+                    // Update the previousHash for the next iteration
+                    previousHash = block.getCurrentHash();
+                }
+
+                System.out.println("[BlockChain] ✅ Local storage integrity and transactions verified successfully.");
+                return true;
+            } else {
+                System.err.println("[BlockChain] ⚠️ No blockchain files found in local storage.");
+                return true;
+            }
+        } catch (IOException e) {
+            System.err.println("[BlockChain] ❌ Error verifying local storage: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    private List<Block> parseBlockchainFromJson(String jsonContent) {
+        List<Block> blocks = new ArrayList<>();
+        Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"]*)\",\\s*\"currentHash\":\\s*\"([^\"]*)\",\\s*\"timestamp\":\\s*\"([^\"]*)\",\\s*\"validatorSignature\":\\s*\"([^\"]*)\",\\s*\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
+        Matcher blockMatcher = blockPattern.matcher(jsonContent);
+
+        while (blockMatcher.find()) {
+            int blockId = Integer.parseInt(blockMatcher.group(1));
+            String previousHash = blockMatcher.group(2);
+            String currentHash = blockMatcher.group(3);
+            String timestamp = blockMatcher.group(4);
+            String validatorSignature = blockMatcher.group(5);
+            String transactionJson = blockMatcher.group(6);
+
+            Transaction transaction = null;
+            if (transactionJson != null && !transactionJson.isBlank()) {
+                Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"]*)\",\\s*\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"]*)\",\\s*\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"]*)\",\\s*\"signature\":\\s*\"([^\"]*)\"");
+                Matcher txMatcher = txPattern.matcher(transactionJson);
+
+                if (txMatcher.find()) {
+                    transaction = new Transaction();
+                    transaction.setId(Integer.parseInt(txMatcher.group(1)));
+                    transaction.setSenderId(Integer.parseInt(txMatcher.group(2)));
+                    transaction.setReceiverKey(txMatcher.group(3));
+                    transaction.setAmount(Double.parseDouble(txMatcher.group(4)));
+                    transaction.setStatus(TransactionStatus.valueOf(txMatcher.group(5)));
+                    transaction.setBlockId(Integer.parseInt(txMatcher.group(6)));
+                    transaction.setCreatedAt(LocalDateTime.parse(txMatcher.group(7)));
+                    transaction.setSignature(txMatcher.group(8));
+                } else {
+                    System.err.println("[BlockChain] ⚠️ Transaction introuvable ou mal formée pour le bloc " + blockId);
+                }
+            }
+            Block block = new Block(blockId, previousHash, transaction, validatorSignature);
+            block.setCurrentHash(currentHash);
+            block.setTimestamp(LocalDateTime.parse(timestamp));
+
+            blocks.add(block);
+        }
+        return blocks;
+    }
 
     private long extractVersion(String filename) {
         try {
@@ -726,7 +859,7 @@ public class BlockChain {
         return true;
     }
 
-    private void initializeStorage() {
+    public void initializeStorage() {
         try {
             Path storagePath = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
             if (!Files.exists(storagePath)) {
