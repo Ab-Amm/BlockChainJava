@@ -41,9 +41,11 @@ public class Main extends Application {
         }
         if (!blockChain.verifyLocalStorageIntegrity()) {
             System.err.println("Local storage integrity check failed. Terminating...");
-            System.exit(1);
+            blockChain.saveToLocalStorage();
+            blockChain.updateAllClientBalances();
         }
         blockChain.saveToLocalStorage();
+        blockChain.updateAllClientBalances();
         launch(args);
     }
 

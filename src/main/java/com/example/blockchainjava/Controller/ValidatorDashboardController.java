@@ -1125,6 +1125,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     }
 
+
+
+
     public String generateSignature(Transaction transaction, PrivateKey privateKey) {
         try {
             // Créer les données à signer (par exemple, l'ID de l'expéditeur et le montant)

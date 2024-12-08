@@ -375,6 +375,7 @@ public class BlockChain {
                         
                         // Clean up old versions after successful save
                         cleanupOldVersions(storageDir, MAX_VERSIONS);
+                        cleanupTempFiles();
                         return; // Success - exit the retry loop
                     } finally {
                         // Clean up temp file if it still exists
@@ -404,6 +405,40 @@ public class BlockChain {
             // If we get here, all retries failed
             System.err.println("[BlockChain] ❌ Failed to save blockchain after " + maxRetries + " attempts");
             throw new RuntimeException("Failed to save blockchain to storage", lastException);
+        }
+    }
+
+    private void cleanupTempFiles() {
+        Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
+        if (!Files.exists(storageDir)) {
+            return;
+        }
+
+        try {
+            // Find all temp files
+            List<Path> tempFiles = Files.list(storageDir)
+                    .filter(path -> path.getFileName().toString().startsWith("temp_"))
+                    .collect(Collectors.toList());
+
+            for (Path tempFile : tempFiles) {
+                try {
+                    // Try to force delete the file
+                    Files.deleteIfExists(tempFile);
+                    System.out.println("[BlockChain] 🧹 Cleaned up temp file: " + tempFile.getFileName());
+                } catch (IOException e) {
+                    // If we can't delete it normally, try to force close any open handles
+                    System.gc(); // Suggest garbage collection to release file handles
+                    try {
+                        Thread.sleep(100); // Give a small delay
+                        Files.deleteIfExists(tempFile);
+                        System.out.println("[BlockChain] 🧹 Cleaned up temp file after retry: " + tempFile.getFileName());
+                    } catch (IOException | InterruptedException ex) {
+                        System.out.println("[BlockChain] ⚠️ Could not delete temp file: " + tempFile.getFileName());
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("[BlockChain] ⚠️ Error during temp file cleanup: " + e.getMessage());
         }
     }
 
@@ -1002,4 +1037,48 @@ public class BlockChain {
                     '}';
         }
     }
+
+
+    public void updateAllClientBalances() {
+        try {
+            // Get all clients from the database
+            List<Client> allClients = userDAO.getAllClients();
+
+            // For each client, recalculate their balance and update it
+            for (Client client : allClients) {
+                double calculatedBalance = 0.0;
+
+                // Get all transactions from the blockchain
+                for (Block block : chain) {
+                    Transaction transaction = block.getTransaction();
+
+                    // If the client is the sender, subtract the amount
+                    if (transaction.getSenderId() == client.getId()) {
+                        calculatedBalance -= transaction.getAmount();
+                    }
+
+                    // If the client is the receiver (matching their public key), add the amount
+                    if (transaction.getReceiverKey().equals(client.getPublicKey())) {
+                        calculatedBalance += transaction.getAmount();
+                    }
+                }
+
+                // Update the client's balance in the database
+                client.setBalance(calculatedBalance);
+                userDAO.updateUserBalance(client, calculatedBalance);
+
+                System.out.println("Updated balance for client " + client.getUsername() +
+                        " (ID: " + client.getId() + "): " + calculatedBalance);
+            }
+
+            System.out.println("Successfully updated all client balances based on blockchain history.");
+
+        } catch (Exception e) {
+            System.err.println("Error updating client balances: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+
 }
