@@ -403,14 +403,15 @@ public class UserDAO {
                 int userId = rs.getInt("id");
                 String username = rs.getString("username");
                 String role = rs.getString("role");
+                String password = rs.getString("password");
                 double balance = rs.getDouble("balance");
+                String publicKey = rs.getString("public_key");
+                String privateKey = rs.getString("private_key");
 
+                // Créer et retourner un objet Admin
+                Client client = new Client(userId, username, password, balance, publicKey, privateKey);
                 // Affichage des résultats extraits de la base de données
                 System.out.println("Fetched client data - User ID: " + userId + ", Username: " + username + ", Role: " + role + ", Balance: " + balance);
-
-                // Créer l'objet Client et définir ses propriétés
-                UserRole userRole = UserRole.valueOf(role);
-                Client client = new Client(userId ,username, rs.getString("password") , balance);
 
                 // Ajouter l'objet Client à la liste
                 clientList.add(client);

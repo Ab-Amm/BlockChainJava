@@ -30,6 +30,9 @@ public class Client extends User {
         this.privateKey=super.getPrivateKey();
         this.publicKey=super.getPublicKey();
     }
+
+
+
     public String sign(Transaction transaction ,Client client) throws Exception {
         String dataToSign = Transaction.generateDataToSign(
                 transaction.getSenderId(), transaction.getReceiverKey(), transaction.getAmount()
