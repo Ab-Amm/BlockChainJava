@@ -1,25 +1,39 @@
 package com.example.blockchainjava.Util.Network;
 
+import com.example.blockchainjava.Model.Transaction.Transaction;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDateTime;
 
 public class BlockMessage {
-    private int Id;
+    private int blockId;
     private String previousHash;
     private String currentHash;
-   // private LocalDateTime timestamp;
-    private String signature;
-
-    public BlockMessage(){}
-    public BlockMessage(int Id,String previousHash,String currentHash,String signature) {
-        this.Id = Id;
+    private Transaction transaction;
+    private String validatorSignature;
+    public BlockMessage() {
+        // Constructeur par défaut
+    }
+    public BlockMessage(int blockId , String previousHash, Transaction transaction, String validatorSignature , String currentHash) {
+        this.blockId=blockId;
         this.previousHash = previousHash;
-        this.currentHash= currentHash;
-        this.signature = signature;
+        this.transaction = transaction;
+        this.validatorSignature = validatorSignature;
+        this.currentHash = currentHash;
+    }
+    // Add getters
+
+    public int getBlockId() {
+        return blockId;
     }
 
-    // Add getters
-    public int getId() { return Id; }
-    public String getSignature() { return signature; }
+    public String getValidatorSignature() {
+        return validatorSignature;
+    }
+
+    public Transaction getTransaction() {
+        return transaction;
+    }
 
 
     public String getCurrentHash() {
@@ -33,10 +47,11 @@ public class BlockMessage {
     @Override
     public String toString() {
         return "BlockMessage{" +
-                "Id=" + Id +
+                "blockId=" + blockId +
                 ", previousHash='" + previousHash + '\'' +
                 ", currentHash='" + currentHash + '\'' +
-                ", signature='" + signature + '\'' +
+                ", transaction='" + transaction + '\'' +
+                ", ValidatorSignature='" + validatorSignature + '\'' +
                 '}';
     }
 

@@ -543,10 +543,11 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private void broadcastNewBlock(Block a) {
         // Create a message containing block information
+        a.getTransaction().setCreatedAt(null);
         BlockMessage blockMessage = new BlockMessage(
-               a.getBlockId(),a.getPreviousHash(),a.getCurrentHash(),a.getValidatorSignature()
+                a.getBlockId(),a.getPreviousHash(),a.getTransaction(),a.getValidatorSignature(),a.getCurrentHash()
         );
-       System.out.println("this is the block to sent"+blockMessage);
+        System.out.println("this is the block to sent"+blockMessage);
         try {
             String message = new ObjectMapper().writeValueAsString(blockMessage);
             List<Validator> validators = getOtherValidators();
@@ -910,7 +911,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
 
             server.start();
-            // Print all bound addresses for verification
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements()) {
                 NetworkInterface ni = interfaces.nextElement();
@@ -930,7 +930,21 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
     private void handleReceivedBlock(BlockMessage blockData) {
-        System.out.println("Processing received block: " + blockData);
+        int blockId = blockData.getBlockId();  // Assuming 'getId()' gets the block ID
+        String previousHash = blockData.getPreviousHash();
+        String currentHash = blockData.getCurrentHash();
+        Transaction transaction = blockData.getTransaction();  // La transaction peut être nulle
+        LocalDateTime timestamp = null;  // Le timestamp peut être nul
+        String validatorSignature = blockData.getValidatorSignature();
+
+        // Créer un objet Block avec les données extraites
+        Block newBlock = new Block(blockId, previousHash, transaction, validatorSignature ,timestamp,currentHash);
+
+        // Ajouter ce nouveau block à la chaîne actuelle (par exemple, blockchain)
+        blockchain.addBlock(newBlock);  // Assuming 'blockchain' is a List<Block> or similar structure
+
+        System.out.println("Block added to the chain: " + newBlock);
+        System.out.println("handling");
     }
     private void handleReceivedValidationMessage(String message) {
         try {
