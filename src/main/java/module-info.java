@@ -20,6 +20,7 @@ module com.example.blockchainjava {
     requires java.sql;
     requires jdk.httpserver;
     requires java.net.http;
+    requires redis.clients.jedis;
     exports com.example.blockchainjava;
     opens com.example.blockchainjava to javafx.fxml;
     opens com.example.blockchainjava.Model.User to javafx.base;
