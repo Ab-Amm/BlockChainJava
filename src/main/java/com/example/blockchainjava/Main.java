@@ -38,6 +38,7 @@ public class Main extends Application {
         if (!isBlockchainValid) {
             System.err.println("La blockchain est invalide. Vérifiez les données avant de continuer.");
             System.exit(1);
+            blockChain.saveToLocalStorage();
         }
         if (!blockChain.verifyLocalStorageIntegrity()) {
             System.err.println("Local storage integrity check failed. Terminating...");

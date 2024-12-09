@@ -204,7 +204,7 @@ public class AdminDashboardController {
     public void handleAddValidator(ActionEvent actionEvent) {
         String username = usernameField.getText();
         String password = passwordField.getText();
-       // String balanceInput = balanceField.getText();
+        // String balanceInput = balanceField.getText();
         String ipAddress = ipField.getText();
         String portInput = portField.getText();
 

@@ -862,6 +862,39 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 }
             });
 
+            // Block broadcast endpoint
+            server.createContext("/block", exchange -> {
+                System.out.println("Received block broadcast");
+                if (!exchange.getRequestMethod().equals("POST")) {
+                    exchange.sendResponseHeaders(405, 0);
+                    return;
+                }
+                try {
+                    InetSocketAddress remoteAddress = exchange.getRemoteAddress();
+                    System.out.println("Received block broadcast from: " +
+                            remoteAddress.getAddress().getHostAddress() + ":" + remoteAddress.getPort());
+
+                    String blockData = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    System.out.println("Received block data: " + blockData);
+
+                    handleReceivedBlock(blockData);
+                    String response = "Block received";
+                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error handling block broadcast: " + e.getMessage());
+                    exchange.sendResponseHeaders(500, e.getMessage().length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(e.getMessage().getBytes());
+                    }
+                } finally {
+                    exchange.close();
+                }
+            });
+
             server.start();
             // Print all bound addresses for verification
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
@@ -882,7 +915,10 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             e.printStackTrace();
         }
     }
-
+    private void handleReceivedBlock(String blockData) {
+        System.out.println("Processing received block: " + blockData);
+       // blockchain=new BlockChain();
+    }
     private void handleReceivedValidationMessage(String message) {
         try {
             if (message == null || message.isEmpty()) {
@@ -1107,6 +1143,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         transactionDAO.saveTransaction(transaction);
 
         blockchain.addBlock(transaction, signature);
+        broadcastNewBlock(transaction,signature);
+        updateBlockchainView();
 
         // Mettre à jour le solde de l'utilisateur
         user.setBalance(newBalance);

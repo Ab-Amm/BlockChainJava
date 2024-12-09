@@ -126,11 +126,11 @@ public class UserDAO {
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
 
             stmt.setString(1, user.getUsername());
-            stmt.setString(2, user.getRole().toString());
+            stmt.setString(2, user.getRole() != null ? user.getRole().toString() : null); // Optionnel si le rôle est nul
             stmt.setTimestamp(3, Timestamp.valueOf(user.getCreatedAt()));
             stmt.setString(4, hashedPassword);
             stmt.setString(5, user.getPublicKey());
-            System.out.println("voici private key :"+ user.getPrivateKey());
+            System.out.println("voici private key :" + user.getPrivateKey());
             stmt.setString(6, EncryptionUtil.encrypt(user.getPrivateKey()));
             stmt.executeUpdate();
         } catch (SQLException e) {
@@ -139,6 +139,7 @@ public class UserDAO {
             throw new RuntimeException(e);
         }
     }
+
     public void saveUser(User user , double balance ) {
         String sql = "INSERT INTO users (username, role, created_at, password, balance ,public_key, private_key) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
@@ -390,8 +391,7 @@ public class UserDAO {
         }
 
         return validatorList;
-    }
-    public List<Client> getAllClients() {
+    }public List<Client> getAllClients() {
         List<Client> clientList = new ArrayList<>();
         String sql = "SELECT * FROM users WHERE role = 'CLIENT'";  // Assurez-vous que la table 'users' existe
 
@@ -403,14 +403,15 @@ public class UserDAO {
                 int userId = rs.getInt("id");
                 String username = rs.getString("username");
                 String role = rs.getString("role");
+                String password = rs.getString("password");
                 double balance = rs.getDouble("balance");
+                String publicKey = rs.getString("public_key");
+                String privateKey = rs.getString("private_key");
 
+                // Créer et retourner un objet Admin
+                Client client = new Client(userId, username, password, balance, publicKey, privateKey);
                 // Affichage des résultats extraits de la base de données
                 System.out.println("Fetched client data - User ID: " + userId + ", Username: " + username + ", Role: " + role + ", Balance: " + balance);
-
-                // Créer l'objet Client et définir ses propriétés
-                UserRole userRole = UserRole.valueOf(role);
-                Client client = new Client(userId ,username, rs.getString("password") , balance);
 
                 // Ajouter l'objet Client à la liste
                 clientList.add(client);
@@ -430,7 +431,6 @@ public class UserDAO {
         // Retourner la liste des clients
         return clientList;
     }
-
     public void updateValidatorBalance(Validator validator, double newBalance) {
         String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'VALIDATOR'";
 

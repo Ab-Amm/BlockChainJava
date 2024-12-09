@@ -42,8 +42,8 @@ public class MainController {
     @FXML
     public void initialize() {
         // Initialize role combo box
-        roleComboBox.getItems().addAll(UserRole.CLIENT);
-        roleComboBox.setItems(FXCollections.observableArrayList(UserRole.values()));
+//        roleComboBox.getItems().addAll(UserRole.CLIENT);
+//        roleComboBox.setItems(FXCollections.observableArrayList(UserRole.values()));
     }
 
     @FXML
@@ -78,9 +78,8 @@ public class MainController {
         String username = signupUsername.getText();
         String password = signupPassword.getText();
         String confirmPassword = signupConfirmPassword.getText();
-        UserRole role = roleComboBox.getValue();
-        // Validate input
-        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() ) {
+
+        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
             showAlert(Alert.AlertType.ERROR, "Signup Error", "Please fill in all fields");
             return;
         }
@@ -91,26 +90,27 @@ public class MainController {
         }
 
         try {
-            // Check if username already exists
             if (userDAO.getUserByUsername(username) != null) {
                 showAlert(Alert.AlertType.ERROR, "Signup Error", "Username already exists");
                 return;
             }
 
-            // Create new user based on role
             User newUser = new Client(username, password);
-            System.out.println("voici new user:"+ newUser);
+            System.out.println("Creating user: " + newUser);
 
-
-            // Save user to database
-            userDAO.saveUser(newUser);
+            try {
+                userDAO.saveUser(newUser);
+            } catch (Exception ex) {
+                System.err.println("Error while saving user: " + ex.getMessage());
+                throw ex;
+            }
 
             showAlert(Alert.AlertType.INFORMATION, "Success", "Account created successfully");
             clearSignupFields();
             mainTabPane.getSelectionModel().select(loginTab);
 
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred during signup");
+           // showAlert(Alert.AlertType.ERROR, "Error", "An error occurred during signup: " + e.getMessage());
             e.printStackTrace();
         }
     }
