@@ -544,7 +544,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private void broadcastNewBlock(Block a) {
         // Create a message containing block information
         BlockMessage blockMessage = new BlockMessage(
-               a.getBlockId(),a.getPreviousHash(),a.getCurrentHash(),a.getTimestamp(),a.getValidatorSignature()
+               a.getBlockId(),a.getPreviousHash(),a.getCurrentHash(),a.getValidatorSignature()
         );
        System.out.println("this is the block to sent"+blockMessage);
         try {
@@ -819,7 +819,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 exchange.close();
             });
 
-            // Validation endpoint
             server.createContext("/validate", exchange -> {
                 System.out.println("Received validation request");
                 System.out.println("Received request method: " + exchange.getRequestMethod());
@@ -858,38 +857,57 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 }
             });
 
-            // Block broadcast endpoint
             server.createContext("/block", exchange -> {
                 System.out.println("Received block broadcast");
-                if (!exchange.getRequestMethod().equals("POST")) {
-                    exchange.sendResponseHeaders(405, 0);
+
+                if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                    exchange.sendResponseHeaders(405, 0); // Method Not Allowed
+                    exchange.close();
                     return;
                 }
+
                 try {
-                    InetSocketAddress remoteAddress = exchange.getRemoteAddress();
-                    System.out.println("Received block broadcast from: " +
-                            remoteAddress.getAddress().getHostAddress() + ":" + remoteAddress.getPort());
 
                     String blockData = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                     System.out.println("Received block data: " + blockData);
 
-                    handleReceivedBlock(blockData);
-                    String response = "Block received";
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    BlockMessage receivedBlockMessage = objectMapper.readValue(blockData, BlockMessage.class);
+
+                    // Afficher l'objet reçu
+                    System.out.println("Deserialized block message: " + receivedBlockMessage);
+
+                    // Appeler une méthode pour gérer le bloc (par exemple, l'ajouter à la blockchain)
+                    handleReceivedBlock(receivedBlockMessage);
+
+                    // Envoyer une réponse de succès
+                    String response = "{\"message\": \"Block received successfully\"}";
                     exchange.getResponseHeaders().add("Content-Type", "application/json");
                     exchange.sendResponseHeaders(200, response.length());
                     try (OutputStream os = exchange.getResponseBody()) {
                         os.write(response.getBytes());
                     }
+
+                } catch (JsonProcessingException e) {
+                    System.err.println("Invalid block data received: " + e.getMessage());
+                    String errorResponse = "{\"error\": \"Invalid block data\"}";
+                    exchange.sendResponseHeaders(400, errorResponse.length()); // Bad Request
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(errorResponse.getBytes());
+                    }
+
                 } catch (Exception e) {
                     System.err.println("Error handling block broadcast: " + e.getMessage());
-                    exchange.sendResponseHeaders(500, e.getMessage().length());
+                    String errorResponse = "{\"error\": \"" + e.getMessage() + "\"}";
+                    exchange.sendResponseHeaders(500, errorResponse.length()); // Internal Server Error
                     try (OutputStream os = exchange.getResponseBody()) {
-                        os.write(e.getMessage().getBytes());
+                        os.write(errorResponse.getBytes());
                     }
                 } finally {
                     exchange.close();
                 }
             });
+
 
             server.start();
             // Print all bound addresses for verification
@@ -911,7 +929,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             e.printStackTrace();
         }
     }
-    private void handleReceivedBlock(String blockData) {
+    private void handleReceivedBlock(BlockMessage blockData) {
         System.out.println("Processing received block: " + blockData);
     }
     private void handleReceivedValidationMessage(String message) {
