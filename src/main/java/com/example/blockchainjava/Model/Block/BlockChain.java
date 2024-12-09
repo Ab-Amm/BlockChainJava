@@ -300,16 +300,17 @@ public class BlockChain {
             System.err.println("[BlockChain] ⚠️ Cannot save: chain is null");
             throw new IllegalStateException("Chain is null");
         }
-        
+
         System.out.println("[BlockChain] 💾 Starting blockchain save operation...");
         System.out.println("[BlockChain] 📊 Current chain state: Version=" + chainVersion + ", Blocks=" + chain.size());
-        
+
         synchronized(chainLock) {
-            int maxRetries = 3;
-            int retryDelayMs = 1000; // 1 second delay between retries
+            int maxRetries = 5;
+            int retryDelayMs = 2000; // 2 seconds delay between retries
             Exception lastException = null;
 
             for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                Path tempFile = null;
                 try {
                     // Ensure storage directory exists
                     Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
@@ -334,7 +335,7 @@ public class BlockChain {
                         jsonBuilder.append("      \"currentHash\": \"").append(block.getCurrentHash()).append("\",\n");
                         jsonBuilder.append("      \"timestamp\": \"").append(block.getTimestamp()).append("\",\n");
                         jsonBuilder.append("      \"validatorSignature\": \"").append(block.getValidatorSignature()).append("\",\n");
-                        
+
                         // Add transaction
                         Transaction tx = block.getTransaction();
                         jsonBuilder.append("      \"transaction\": {\n");
@@ -349,48 +350,63 @@ public class BlockChain {
                         jsonBuilder.append("      }\n");
                         jsonBuilder.append("    }").append(i < chain.size() - 1 ? "," : "").append("\n");
                     }
-                    
+
                     jsonBuilder.append("  ]\n");
                     jsonBuilder.append("}\n");
 
                     // Create filename with version
                     String filename = String.format("blockchain_v%d.json", chainVersion);
                     Path filePath = storageDir.resolve(filename);
-                    Path tempFile = null;
 
-                    try {
-                        // Create temp file in the same directory
-                        tempFile = Files.createTempFile(storageDir, "temp_", ".json");
-                        
-                        // Write to temporary file
-                        Files.writeString(tempFile, jsonBuilder.toString(), StandardCharsets.UTF_8);
-                        
-                        // Try to delete the target file if it exists
-                        Files.deleteIfExists(filePath);
-                        
-                        // Atomic move with retry
-                        Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE);
-                        
-                        System.out.println("[BlockChain] ✅ Successfully saved blockchain version " + chainVersion);
-                        
-                        // Clean up old versions after successful save
-                        cleanupOldVersions(storageDir, MAX_VERSIONS);
-                        cleanupTempFiles();
-                        return; // Success - exit the retry loop
-                    } finally {
-                        // Clean up temp file if it still exists
-                        if (tempFile != null) {
-                            try {
-                                Files.deleteIfExists(tempFile);
-                            } catch (IOException e) {
-                                System.err.println("[BlockChain] ⚠️ Could not delete temp file: " + e.getMessage());
+                    // Create temp file in the same directory
+                    tempFile = Files.createTempFile(storageDir, "temp_", ".json");
+
+                    // Write to temporary file
+                    Files.writeString(tempFile, jsonBuilder.toString(), StandardCharsets.UTF_8);
+
+                    // Try to delete the target file if it exists
+                    Files.deleteIfExists(filePath);
+
+                    // Retry loop for atomic move with lock check
+                    boolean moveSuccess = false;
+                    int moveRetries = 3;
+                    for (int moveAttempt = 1; moveAttempt <= moveRetries; moveAttempt++) {
+                        try {
+                            // Check if the target file is in use
+                            if (Files.exists(filePath) && !Files.isWritable(filePath)) {
+                                System.err.println("[BlockChain] ⚠️ Target file is locked, retrying move...");
+                                Thread.sleep(retryDelayMs * moveAttempt); // Exponential backoff for file move
+                                continue;
                             }
+
+                            // Atomic move of the temp file
+                            Files.move(tempFile, filePath, StandardCopyOption.ATOMIC_MOVE);
+                            moveSuccess = true;
+                            break; // Exit loop if move is successful
+                        } catch (IOException e) {
+                            System.err.println("[BlockChain] ⚠️ Attempt " + moveAttempt + " to move file failed: " + e.getMessage());
+                            if (moveAttempt < moveRetries) {
+                                Thread.sleep(retryDelayMs * moveAttempt); // Exponential backoff
+                            }
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
                         }
                     }
-                } catch (IOException e) {
+
+                    if (!moveSuccess) {
+                        throw new IOException("Failed to atomically move the temp file after multiple attempts");
+                    }
+
+                    System.out.println("[BlockChain] ✅ Successfully saved blockchain version " + chainVersion);
+
+                    // Clean up old versions after successful save
+                    cleanupOldVersions(storageDir, MAX_VERSIONS);
+                    cleanupTempFiles();
+                    return; // Success - exit the retry loop
+                } catch (IOException | InterruptedException e) {
                     lastException = e;
                     System.err.println("[BlockChain] ⚠️ Attempt " + attempt + " failed: " + e.getMessage());
-                    
+
                     if (attempt < maxRetries) {
                         try {
                             Thread.sleep(retryDelayMs * attempt); // Exponential backoff
@@ -399,14 +415,25 @@ public class BlockChain {
                             throw new RuntimeException("Interrupted while retrying save operation", ie);
                         }
                     }
+                } finally {
+                    // Cleanup temp file if it exists
+                    if (tempFile != null && Files.exists(tempFile)) {
+                        try {
+                            Files.deleteIfExists(tempFile);
+                        } catch (IOException e) {
+                            System.err.println("[BlockChain] ⚠️ Could not delete temp file: " + e.getMessage());
+                        }
+                    }
                 }
             }
-            
+
             // If we get here, all retries failed
             System.err.println("[BlockChain] ❌ Failed to save blockchain after " + maxRetries + " attempts");
             throw new RuntimeException("Failed to save blockchain to storage", lastException);
         }
     }
+
+
 
     private void cleanupTempFiles() {
         Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
@@ -1047,19 +1074,28 @@ public class BlockChain {
             // For each client, recalculate their balance and update it
             for (Client client : allClients) {
                 double calculatedBalance = 0.0;
+                System.out.println("Client ID: " + client.getId() + ", publickey: " + client.getPublicKey());
 
                 // Get all transactions from the blockchain
                 for (Block block : chain) {
+
                     Transaction transaction = block.getTransaction();
+                    System.out.println("Sender ID: " + transaction.getSenderId());
+                    System.out.println("Receiver Key: " + transaction.getReceiverKey());
+                    System.out.println("Amount: " + transaction.getAmount());
 
                     // If the client is the sender, subtract the amount
                     if (transaction.getSenderId() == client.getId()) {
                         calculatedBalance -= transaction.getAmount();
+                        System.out.println("sent Transaction ID: " + transaction.getId() + ", Amount: " + transaction.getAmount() + ", Sender ID: " + transaction.getSenderId() + ", Receiver ID: " + transaction.getReceiverKey());
+                        System.out.println("calculatedBalance: " + calculatedBalance);
                     }
 
                     // If the client is the receiver (matching their public key), add the amount
                     if (transaction.getReceiverKey().equals(client.getPublicKey())) {
                         calculatedBalance += transaction.getAmount();
+                        System.out.println("received Transaction ID: " + transaction.getId() + ", Amount: " + transaction.getAmount() + ", Sender ID: " + transaction.getSenderId() + ", Receiver ID: " + transaction.getReceiverKey());
+                        System.out.println("calculatedBalance: " + calculatedBalance);
                     }
                 }
 
