@@ -112,7 +112,7 @@ public class BlockChain {
         return blockDAO.getLastBlockId() + 1;
     }
 
-    public synchronized void addBlock(Transaction transaction, String validatorSignature) {
+    public synchronized Block addBlock(Transaction transaction, String validatorSignature) {
         validateBlockParameters(transaction, validatorSignature);
         
         synchronized(chainLock) {
@@ -138,6 +138,7 @@ public class BlockChain {
                 }
                 saveToLocalStorage();
                 notifyObservers();
+                return newBlock;
             } catch (Exception e) {
                 // Rollback on failure
                 chain.remove(chain.size() - 1);
@@ -1080,15 +1081,10 @@ public class BlockChain {
                 for (Block block : chain) {
 
                     Transaction transaction = block.getTransaction();
-                    System.out.println("Sender ID: " + transaction.getSenderId());
-                    System.out.println("Receiver Key: " + transaction.getReceiverKey());
-                    System.out.println("Amount: " + transaction.getAmount());
 
                     // If the client is the sender, subtract the amount
                     if (transaction.getSenderId() == client.getId()) {
                         calculatedBalance -= transaction.getAmount();
-                        System.out.println("sent Transaction ID: " + transaction.getId() + ", Amount: " + transaction.getAmount() + ", Sender ID: " + transaction.getSenderId() + ", Receiver ID: " + transaction.getReceiverKey());
-                        System.out.println("calculatedBalance: " + calculatedBalance);
                     }
 
                     // If the client is the receiver (matching their public key), add the amount
@@ -1101,6 +1097,7 @@ public class BlockChain {
 
                 // Update the client's balance in the database
                 client.setBalance(calculatedBalance);
+                System.out.println("this is the setted balance :"+client.getBalance());
                 userDAO.updateUserBalance(client, calculatedBalance);
 
                 System.out.println("Updated balance for client " + client.getUsername() +

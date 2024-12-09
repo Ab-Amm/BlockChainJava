@@ -100,15 +100,11 @@ public class BlockDAO {
                 block.setTimestamp(blockTimestampConverted);
 
                 blocks.add(block);
-                System.out.println("voici les blocks récupérés :");
-                System.out.println(blocks);
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to load blocks", e);
         }
 
-        System.out.println("voici les blocks récupérés :");
-        System.out.println(blocks);
         return blocks;
     }
     public void updateBlock(Block block) {

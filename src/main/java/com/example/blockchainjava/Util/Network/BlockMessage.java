@@ -1,18 +1,34 @@
 package com.example.blockchainjava.Util.Network;
 
-public class BlockMessage {
-    private final int transactionId;
-    private final String signature;
-    private final int validatorId;
+import java.time.LocalDateTime;
 
-    public BlockMessage(int transactionId, String signature, int validatorId) {
-        this.transactionId = transactionId;
+public class BlockMessage {
+    private final int Id;
+    private String previousHash;
+    private String currentHash;
+    private LocalDateTime timestamp;
+    private final String signature;
+
+    public BlockMessage(int Id,String previousHash,String currentHash,LocalDateTime timestamp, String signature) {
+        this.Id = Id;
+        this.previousHash = previousHash;
+        this.currentHash= currentHash;
+        this.timestamp = timestamp;
         this.signature = signature;
-        this.validatorId = validatorId;
     }
 
     // Add getters
-    public int getTransactionId() { return transactionId; }
+    public int getTransactionId() { return Id; }
     public String getSignature() { return signature; }
-    public int getValidatorId() { return validatorId; }
+    @Override
+    public String toString() {
+        return "BlockMessage{" +
+                "Id=" + Id +
+                ", previousHash='" + previousHash + '\'' +
+                ", currentHash='" + currentHash + '\'' +
+                ", timestamp=" + timestamp +
+                ", signature='" + signature + '\'' +
+                '}';
+    }
+
 }

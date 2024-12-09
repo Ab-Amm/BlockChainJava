@@ -541,14 +541,12 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         }
     }
 
-    private void broadcastNewBlock(Transaction transaction, String signature) {
+    private void broadcastNewBlock(Block a) {
         // Create a message containing block information
         BlockMessage blockMessage = new BlockMessage(
-                transaction.getId(),
-                signature,
-                validator.getId()
+               a.getBlockId(),a.getPreviousHash(),a.getCurrentHash(),a.getTimestamp(),a.getValidatorSignature()
         );
-
+       System.out.println("this is the block to sent"+blockMessage);
         try {
             String message = new ObjectMapper().writeValueAsString(blockMessage);
             List<Validator> validators = getOtherValidators();
@@ -660,7 +658,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 // Créer l'objet Validator
                 Validator validator = new Validator(id, username, ip, port, balance);
                 validators.add(validator);
-                System.out.println("Validator added to the list of other validators: " + validator);
             }
         } catch (SQLException e) {
             System.err.println("Error fetching validators from database: " + e.getMessage());
@@ -674,7 +671,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     private String getCurrentValidatorIp() {
         User currentUser = Session.getCurrentUser();
         this.validator.loadValidatorData(currentUser.getId());
-        System.out.println("l address de valid actuelle qu'il faut ignorer lors de send "+validator.getIpAddress());
         return validator.getIpAddress();
     }
 
@@ -917,7 +913,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
     private void handleReceivedBlock(String blockData) {
         System.out.println("Processing received block: " + blockData);
-       // blockchain=new BlockChain();
     }
     private void handleReceivedValidationMessage(String message) {
         try {
@@ -1119,7 +1114,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         double adjustmentAmount = newBalance - user.getBalance();
 
         if (adjustmentAmount > validator.getBalance()) {
-            showError("Transaction Error", "Insufficient balance in the administrator's account.");
+            showError("Transaction Error", "Insufficient balance in the validator's account.");
             return;
         }
 
@@ -1142,10 +1137,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         transaction.setSignature(signature);
         transactionDAO.saveTransaction(transaction);
 
-        blockchain.addBlock(transaction, signature);
-        broadcastNewBlock(transaction,signature);
-        updateBlockchainView();
-
+        Block a=blockchain.addBlock(transaction, signature);
+        broadcastNewBlock(a);
         // Mettre à jour le solde de l'utilisateur
         user.setBalance(newBalance);
         userDAO.updateUserBalance(user, newBalance);

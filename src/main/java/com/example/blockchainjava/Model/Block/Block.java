@@ -38,11 +38,6 @@ public class Block {
         // Convertir LocalDateTime en Timestamp
         Timestamp timestampAsTimestamp = Timestamp.valueOf(timestamp);
 
-        // Afficher les valeurs pour débogage
-        System.out.println("Previous Hash: " + previousHash);
-        System.out.println("Transaction ID: " + transaction.getId());
-        //System.out.println("Timestamp: " + timestampAsTimestamp.toString());
-        System.out.println("Validator Signature: " + validatorSignature);
 
         // Calculer le hash
         String calculatedHash = HashUtil.sha256(
@@ -51,7 +46,6 @@ public class Block {
                         validatorSignature
         );
 
-        System.out.println("Calculated Hash: " + calculatedHash);
         return calculatedHash;
     }
 

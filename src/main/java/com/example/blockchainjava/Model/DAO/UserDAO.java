@@ -410,10 +410,7 @@ public class UserDAO {
 
                 // Créer et retourner un objet Admin
                 Client client = new Client(userId, username, password, balance, publicKey, privateKey);
-                // Affichage des résultats extraits de la base de données
-                System.out.println("Fetched client data - User ID: " + userId + ", Username: " + username + ", Role: " + role + ", Balance: " + balance);
 
-                // Ajouter l'objet Client à la liste
                 clientList.add(client);
             }
 
@@ -422,13 +419,6 @@ public class UserDAO {
             throw new RuntimeException("Failed to load all clients", e);
         }
 
-        // Affichage pour vérifier le contenu de la liste clientList
-        System.out.println("Total number of clients fetched: " + clientList.size());
-        for (Client client : clientList) {
-            System.out.println("Client: " + client.getUsername() + ", Balance: " + client.getBalance());
-        }
-
-        // Retourner la liste des clients
         return clientList;
     }
     public void updateValidatorBalance(Validator validator, double newBalance) {
