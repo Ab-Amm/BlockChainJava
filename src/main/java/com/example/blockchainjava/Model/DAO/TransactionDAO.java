@@ -347,39 +347,34 @@ public class TransactionDAO {
 
             // Update Redis cache for both sender and receiver
             try {
-                // Get current balances from Redis first
-                Double senderBalance = RedisUtil.getUserBalance(transaction.getSenderId());
-                if (senderBalance == null) {
-                    // Fallback to database if Redis is null
-                    try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE id = ?")) {
-                        stmt.setInt(1, transaction.getSenderId());
-                        ResultSet rs = stmt.executeQuery();
-                        if (rs.next()) {
-                            senderBalance = rs.getDouble("balance");
-                            RedisUtil.setUserBalance(transaction.getSenderId(), senderBalance);
-                        }
+                // Get current balances from database
+                double senderNewBalance = 0;
+                double receiverNewBalance = 0;
+                
+                try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE id = ?")) {
+                    stmt.setInt(1, transaction.getSenderId());
+                    ResultSet rs = stmt.executeQuery();
+                    if (rs.next()) {
+                        senderNewBalance = rs.getDouble("balance");
                     }
                 }
 
-                Double receiverBalance = RedisUtil.getBalanceByPublicKey(transaction.getReceiverKey());
-                if (receiverBalance == null) {
-                    // Fallback to database if Redis is null
-                    try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE public_key = ?")) {
-                        stmt.setString(1, transaction.getReceiverKey());
-                        ResultSet rs = stmt.executeQuery();
-                        if (rs.next()) {
-                            receiverBalance = rs.getDouble("balance");
-                            RedisUtil.setPublicKeyBalance(transaction.getReceiverKey(), transaction.getReceiverId(), receiverBalance);
-                        }
+                try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE public_key = ?")) {
+                    stmt.setString(1, transaction.getReceiverKey());
+                    ResultSet rs = stmt.executeQuery();
+                    if (rs.next()) {
+                        receiverNewBalance = rs.getDouble("balance");
                     }
                 }
 
-                // Update balances in Redis
-                if (senderBalance != null) {
-                    RedisUtil.setUserBalance(transaction.getSenderId(), senderBalance - transaction.getAmount());
-                }
-                if (receiverBalance != null) {
-                    RedisUtil.setPublicKeyBalance(transaction.getReceiverKey(), transaction.getReceiverId(), receiverBalance + transaction.getAmount());
+                // Update sender's balance in Redis (both by ID and public key)
+                RedisUtil.setUserBalance(transaction.getSenderId(), senderNewBalance);
+
+                // Update receiver's balance in Redis (both by ID and public key)
+                UserDAO userDAO = new UserDAO();
+                Client receiver = userDAO.getClientByPublicKey(transaction.getReceiverKey());
+                if (receiver != null) {
+                    RedisUtil.setUserBalance(receiver.getId(), receiverNewBalance);
                 }
 
             } catch (Exception e) {

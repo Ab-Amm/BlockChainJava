@@ -85,15 +85,8 @@ public class BlockChain {
             }
 
             // Vérifier que le solde de l'expéditeur est suffisant
-            Double senderBalance = RedisUtil.getUserBalance(transaction.getSenderId());
-            if (senderBalance == null) {
-                // Fallback to database if Redis is null
-                User sender = userDAO.findUserById(transaction.getSenderId());
-                senderBalance = sender.getBalance();
-                RedisUtil.setUserBalance(transaction.getSenderId(), senderBalance);
-            }
-
-            if (senderBalance < transaction.getAmount()) {
+            User sender = userDAO.findUserById(transaction.getSenderId());
+            if (sender.getBalance() < transaction.getAmount()) {
                 System.err.println("Le solde de l'expéditeur pour la transaction ID " + transaction.getId() + " est insuffisant.");
                 return false;
             }
@@ -685,11 +678,33 @@ public class BlockChain {
 
                     // Verify the transaction in the block
                     Transaction transaction = block.getTransaction();
-                    if (!validateTransaction(transaction)) {
-                        System.err.println("[BlockChain] ❌ Invalid transaction in block ID: " + block.getBlockId());
-                        return false;
+                    if (transaction != null) {
+                        // Verify the transaction's signature
+                        PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
+                                userDAO.getPublicKeyByUserId(transaction.getSenderId())
+                        );
+                        boolean isSignatureValid = SecurityUtils.verifySignature(
+                                transaction.getDataToSign(),
+                                transaction.getSignature(),
+                                senderPublicKey
+                        );
+
+                        if (!isSignatureValid) {
+                            System.err.println("[BlockChain] ❌ Invalid signature for transaction ID: " + transaction.getId());
+                            return false;
+                        }
+
+                        // Verify sender's balance (if applicable)
+                        if (transaction.getSenderId() != null) {
+                            User sender = userDAO.findUserById(transaction.getSenderId());
+                            if (sender.getBalance() < transaction.getAmount()) {
+                                System.err.println("[BlockChain] ❌ Insufficient balance for transaction ID: " + transaction.getId());
+                                return false;
+                            }
+                        }
                     }
 
+                    // Update the previousHash for the next iteration
                     previousHash = block.getCurrentHash();
                 }
 

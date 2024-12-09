@@ -69,9 +69,16 @@ public class UserDAO {
         return null; // Return null if no client was found
     }
 
+
     public Validator getValidatorData(int id) {
+        // Check Redis cache first
+        Double cachedBalance = RedisUtil.getUserBalance(id);
+        if (cachedBalance != null) {
+            System.out.println("Retrieved balance from Redis for validator ID: " + id);
+        }
+
         String sql = """
-        SELECT u.id , u.username, u.password, u.balance, v.ip_address, v.port
+        SELECT u.id , u.username, u.password, v.ip_address, v.port
         FROM users u
         JOIN validators v ON u.id = v.id
         WHERE u.id = ? AND u.role = 'VALIDATOR'
@@ -83,34 +90,44 @@ public class UserDAO {
 
             if (rs.next()) {
                 // Retrieve data from the ResultSet
-                String username=rs.getString("username");
+                String username = rs.getString("username");
                 String password = rs.getString("password");
                 String ipAddress = rs.getString("ip_address");
                 int port = rs.getInt("port");
-                double balance = rs.getDouble("balance");
+                double balance = cachedBalance != null ? cachedBalance : rs.getDouble("balance");
+
+                // Update Redis if the balance was retrieved from the database
+                if (cachedBalance == null) {
+                    RedisUtil.setUserBalance(id, balance);
+                    System.out.println("Updated balance in Redis for validator ID: " + id);
+                }
 
                 // Create the Validator object using the new constructor
-                Validator validator = new Validator(id ,username, ipAddress, port, balance);
+                Validator validator = new Validator(id, username, ipAddress, port, balance);
 
                 return validator; // Return the Validator object
             } else {
                 System.out.println("No validator found with id: " + id);
             }
-        } catch (SQLException e) {
+        } catch (SQLException | NoSuchAlgorithmException e) {
             throw new RuntimeException("Failed to load validator with id: " + id, e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Error while creating validator object: " + id, e);
         }
 
         return null; // Return null if no validator was found
     }
 
     public Client getClientData(int id) {
+        String sql = """
+        SELECT u.id, u.username, u.password, u.balance
+        FROM users u
+        WHERE u.id = ? AND u.role = 'CLIENT'
+    """;
+
         // Check if the balance is cached in Redis
         Double cachedBalance = RedisUtil.getUserBalance(id);
         if (cachedBalance != null) {
             // Cache hit: Fetch username and password from the database
-            try (PreparedStatement stmt = connection.prepareStatement("SELECT username, password FROM users WHERE id = ? AND role = 'CLIENT'")) {
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setInt(1, id);
                 ResultSet rs = stmt.executeQuery();
 
@@ -126,7 +143,7 @@ public class UserDAO {
             }
         } else {
             // Cache miss: Query the database and store the balance in Redis
-            try (PreparedStatement stmt = connection.prepareStatement("SELECT username, password, balance FROM users WHERE id = ? AND role = 'CLIENT'")) {
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setInt(1, id);
                 ResultSet rs = stmt.executeQuery();
 
@@ -149,6 +166,7 @@ public class UserDAO {
         // Return null if no client was found
         return null;
     }
+
 
     public Admin getAdminData(int id) {
         String sql = """
@@ -180,6 +198,7 @@ public class UserDAO {
 
         return null; // Return null if no validator was found
     }
+
 
     public void saveUser(User user) {
         String sql = "INSERT INTO users (username, role, created_at, password, public_key, private_key) VALUES (?, ?, ?, ?, ?, ?)";
@@ -225,7 +244,6 @@ public class UserDAO {
             throw new RuntimeException(e);
         }
     }
-
     public void saveValidator(Validator validator, String ipAddress, int port) {
         Connection conn = null;
         PreparedStatement validatorStmt = null;
@@ -366,6 +384,7 @@ public class UserDAO {
         return null;
     }
 
+
     private User createUserFromResultSet(ResultSet rs, UserRole role) throws Exception {
         User user = switch (role) {
             case CLIENT -> new Client(
@@ -431,6 +450,7 @@ public class UserDAO {
         }
     }
 
+
     public List<Validator> getValidators() {
         List<Validator> validatorList = new ArrayList<>();
         String sql = "SELECT * FROM users JOIN validators ON users.id=validators.id WHERE role = 'VALIDATOR'";  // Adjust query based on your database schema
@@ -469,7 +489,6 @@ public class UserDAO {
 
         return validatorList;
     }
-
     public List<Client> getAllClients() {
         List<Client> clientList = new ArrayList<>();
         String sql = "SELECT * FROM users WHERE role = 'CLIENT'";
@@ -507,6 +526,7 @@ public class UserDAO {
 
         return clientList;
     }
+
 
     public boolean updateUserBalance(User user, double newBalance) {
         String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'CLIENT'";
@@ -549,7 +569,6 @@ public class UserDAO {
             throw new RuntimeException("Échec de la mise à jour du solde pour admin : " + admin.getUsername(), e);
         }
     }
-
     public void deleteValidator(Validator validator) {
         String deleteUserSQL = "DELETE FROM users WHERE username = ?";
 
@@ -567,7 +586,6 @@ public class UserDAO {
             throw new RuntimeException("Failed to delete validator: " + validator.getUsername(), e);
         }
     }
-
     public User findUserById(int clientId) {
         String sql = "SELECT * FROM users WHERE id = ?";
 
@@ -602,7 +620,6 @@ public class UserDAO {
         rs.beforeFirst(); // Revenir au début du ResultSet
         return rowCount;
     }
-
     public Admin getAdminFromDatabase(int adminId) {
 
         // Requête SQL pour récupérer les informations de l'administrateur
@@ -638,7 +655,6 @@ public class UserDAO {
             return null;
         }
     }
-
     public Validator getValidatorFromDatabase(int validatorId) {
 
         // Requête SQL pour récupérer les informations de l'administrateur
@@ -676,7 +692,6 @@ public class UserDAO {
             return null;
         }
     }
-
     public Client getClientFromDatabase(int clientId) {
         // Check Redis cache first
         Double cachedBalance = RedisUtil.getUserBalance(clientId);

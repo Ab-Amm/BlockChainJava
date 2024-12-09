@@ -38,13 +38,7 @@ public class RedisUtil {
         try (Jedis jedis = jedisPool.getResource()) {
             String key = BALANCE_KEY_PREFIX + userId;
             String balance = jedis.get(key);
-            if (balance != null) {
-                return Double.parseDouble(balance);
-            } else {
-                // Fall back to database if Redis returns null
-                // Assuming a method getBalanceFromDatabase exists
-                return getBalanceFromDatabase(userId);
-            }
+            return balance != null ? Double.parseDouble(balance) : null;
         }
     }
 
@@ -73,13 +67,7 @@ public class RedisUtil {
         try (Jedis jedis = jedisPool.getResource()) {
             String key = PUBLIC_KEY_BALANCE_KEY_PREFIX + publicKey;
             String balance = jedis.hget(key, "balance");
-            if (balance != null) {
-                return Double.parseDouble(balance);
-            } else {
-                // Fall back to database if Redis returns null
-                // Assuming a method getBalanceFromDatabaseByPublicKey exists
-                return getBalanceFromDatabaseByPublicKey(publicKey);
-            }
+            return balance != null ? Double.parseDouble(balance) : null;
         }
     }
 
@@ -101,16 +89,5 @@ public class RedisUtil {
         if (jedisPool != null) {
             jedisPool.close();
         }
-    }
-
-    // Assuming these methods exist to retrieve balance from database
-    private static Double getBalanceFromDatabase(int userId) {
-        // Implement database retrieval logic here
-        return null;
-    }
-
-    private static Double getBalanceFromDatabaseByPublicKey(String publicKey) {
-        // Implement database retrieval logic here
-        return null;
     }
 }
