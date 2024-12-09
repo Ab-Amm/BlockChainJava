@@ -298,7 +298,7 @@ public class AdminDashboardController {
 
             // Mise à jour du solde du validateur
             selectedValidator.setBalance(selectedValidator.getBalance() + adjustmentAmount);
-            userDAO.updateValidatorBalance(selectedValidator, newBalance);
+            userDAO.updateUserBalance(selectedValidator, newBalance);
 
             int Id = currentUser.getId(); // Get the username from the current user;
             this.admin = new Admin( Id ,currentUser.getUsername() , currentUser.getPassword() , currentUser.getBalance());

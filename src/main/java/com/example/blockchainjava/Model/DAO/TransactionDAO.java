@@ -2,6 +2,8 @@ package com.example.blockchainjava.Model.DAO;
 
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
+import com.example.blockchainjava.Model.User.Client;
+import com.example.blockchainjava.Util.RedisUtil;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -114,8 +116,6 @@ public class TransactionDAO {
 
         return transactions;
     }
-
-
 
     public List<Transaction> getTransactionsByBlockId(int blockId) throws SQLException {
         List<Transaction> transactions = new ArrayList<>();
@@ -328,22 +328,67 @@ public class TransactionDAO {
         try {
             connection.setAutoCommit(false);
 
-            // Mise à jour du solde de l'expéditeur
+            // Update sender's balance in the database
             try (PreparedStatement stmtSender = connection.prepareStatement(sqlUpdateSender)) {
                 stmtSender.setDouble(1, transaction.getAmount());
                 stmtSender.setInt(2, transaction.getSenderId());
                 stmtSender.executeUpdate();
             }
 
-            // Mise à jour du solde du destinataire
+            // Update receiver's balance in the database
             try (PreparedStatement stmtReceiver = connection.prepareStatement(sqlUpdateReceiver)) {
                 stmtReceiver.setDouble(1, transaction.getAmount());
                 stmtReceiver.setString(2, transaction.getReceiverKey());
                 stmtReceiver.executeUpdate();
             }
 
+            // Commit the database transaction
             connection.commit();
+
+            // Update Redis cache for both sender and receiver
+            try {
+                // Get current balances from Redis first
+                Double senderBalance = RedisUtil.getUserBalance(transaction.getSenderId());
+                if (senderBalance == null) {
+                    // Fallback to database if Redis is null
+                    try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE id = ?")) {
+                        stmt.setInt(1, transaction.getSenderId());
+                        ResultSet rs = stmt.executeQuery();
+                        if (rs.next()) {
+                            senderBalance = rs.getDouble("balance");
+                            RedisUtil.setUserBalance(transaction.getSenderId(), senderBalance);
+                        }
+                    }
+                }
+
+                Double receiverBalance = RedisUtil.getBalanceByPublicKey(transaction.getReceiverKey());
+                if (receiverBalance == null) {
+                    // Fallback to database if Redis is null
+                    try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE public_key = ?")) {
+                        stmt.setString(1, transaction.getReceiverKey());
+                        ResultSet rs = stmt.executeQuery();
+                        if (rs.next()) {
+                            receiverBalance = rs.getDouble("balance");
+                            RedisUtil.setPublicKeyBalance(transaction.getReceiverKey(), transaction.getReceiverId(), receiverBalance);
+                        }
+                    }
+                }
+
+                // Update balances in Redis
+                if (senderBalance != null) {
+                    RedisUtil.setUserBalance(transaction.getSenderId(), senderBalance - transaction.getAmount());
+                }
+                if (receiverBalance != null) {
+                    RedisUtil.setPublicKeyBalance(transaction.getReceiverKey(), transaction.getReceiverId(), receiverBalance + transaction.getAmount());
+                }
+
+            } catch (Exception e) {
+                System.err.println("Failed to update Redis cache after transaction for ID: " + transaction.getId());
+                e.printStackTrace();
+            }
+
             return true;
+
         } catch (SQLException e) {
             try {
                 connection.rollback();
@@ -359,7 +404,6 @@ public class TransactionDAO {
             }
         }
     }
-
 
     // Mettre à jour une transaction existante
     public void updateTransaction(Transaction transaction) {
@@ -388,6 +432,4 @@ public class TransactionDAO {
             throw new RuntimeException("Failed to update transaction", e);
         }
     }
-
-
 }

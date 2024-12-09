@@ -3,6 +3,8 @@ package com.example.blockchainjava.Model.DAO;
 import com.example.blockchainjava.Model.User.*;
 import com.example.blockchainjava.Util.Security.EncryptionUtil;
 import com.example.blockchainjava.Util.Security.HashUtil;
+import com.example.blockchainjava.Util.RedisUtil;
+import com.example.blockchainjava.Util.RedisUtil;
 
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
@@ -13,11 +15,58 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import redis.clients.jedis.Jedis;
+
 public class UserDAO {
     private final Connection connection;
 
     public UserDAO() {
         this.connection = DatabaseConnection.getConnection();
+    }
+
+    public Client getClientByPublicKey(String publicKey) {
+        // Check Redis cache first
+        Double cachedBalance = RedisUtil.getBalanceByPublicKey(publicKey);
+        if (cachedBalance != null) {
+            System.out.println("Retrieved balance from Redis for public key: " + publicKey);
+        }
+
+        // SQL query to get client info
+        String sql = """
+        SELECT id, username, password, balance, public_key, private_key
+        FROM users 
+        WHERE public_key = ? AND role = 'CLIENT'
+    """;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, publicKey);
+
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String username = resultSet.getString("username");
+                String password = resultSet.getString("password");
+                double balance = cachedBalance != null ? cachedBalance : resultSet.getDouble("balance");
+                String retrievedPublicKey = resultSet.getString("public_key");
+                String privateKey = resultSet.getString("private_key");
+
+                // Update Redis if the balance was retrieved from the database
+                if (cachedBalance == null) {
+                    RedisUtil.setPublicKeyBalance(retrievedPublicKey, id, balance);
+                    System.out.println("Updated balance in Redis for public key: " + retrievedPublicKey);
+                }
+
+                // Create and return the Client object
+                return new Client(id, username, password, balance, retrievedPublicKey, privateKey);
+            } else {
+                System.out.println("No client found with public key: " + publicKey);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to retrieve client data for public key: " + publicKey, e);
+        }
+
+        return null; // Return null if no client was found
     }
 
     public Validator getValidatorData(int id) {
@@ -55,36 +104,52 @@ public class UserDAO {
 
         return null; // Return null if no validator was found
     }
+
     public Client getClientData(int id) {
-        String sql = """
-        SELECT u.id , u.username, u.password, u.balance
-        FROM users u
-        WHERE u.id = ? AND u.role = 'CLIENT'
-    """;
+        // Check if the balance is cached in Redis
+        Double cachedBalance = RedisUtil.getUserBalance(id);
+        if (cachedBalance != null) {
+            // Cache hit: Fetch username and password from the database
+            try (PreparedStatement stmt = connection.prepareStatement("SELECT username, password FROM users WHERE id = ? AND role = 'CLIENT'")) {
+                stmt.setInt(1, id);
+                ResultSet rs = stmt.executeQuery();
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, id); // Set the username parameter
-            ResultSet rs = stmt.executeQuery(); // Execute the query
+                if (rs.next()) {
+                    String username = rs.getString("username");
+                    String password = rs.getString("password");
 
-            if (rs.next()) {
-                // Retrieve data from the ResultSet
-                String username=rs.getString("username");
-                String password = rs.getString("password");
-                double balance = rs.getDouble("balance");
-
-                // Create the Validator object using the new constructor
-                Client client = new Client(id ,username ,password,balance);
-
-                return client;
-            } else {
-                System.out.println("No validator found with id: " + id);
+                    // Return the client object with the cached balance
+                    return new Client(id, username, password, cachedBalance);
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to load client with id: " + id, e);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to load validator with id: " + id, e);
+        } else {
+            // Cache miss: Query the database and store the balance in Redis
+            try (PreparedStatement stmt = connection.prepareStatement("SELECT username, password, balance FROM users WHERE id = ? AND role = 'CLIENT'")) {
+                stmt.setInt(1, id);
+                ResultSet rs = stmt.executeQuery();
+
+                if (rs.next()) {
+                    String username = rs.getString("username");
+                    String password = rs.getString("password");
+                    double balance = rs.getDouble("balance");
+
+                    // Cache the balance in Redis
+                    RedisUtil.setUserBalance(id, balance);
+
+                    // Return the client object
+                    return new Client(id, username, password, balance);
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to load client with id: " + id, e);
+            }
         }
 
-        return null; // Return null if no validator was found
+        // Return null if no client was found
+        return null;
     }
+
     public Admin getAdminData(int id) {
         String sql = """
         SELECT u.id , u.username, u.password, u.balance
@@ -115,7 +180,6 @@ public class UserDAO {
 
         return null; // Return null if no validator was found
     }
-
 
     public void saveUser(User user) {
         String sql = "INSERT INTO users (username, role, created_at, password, public_key, private_key) VALUES (?, ?, ?, ?, ?, ?)";
@@ -161,6 +225,7 @@ public class UserDAO {
             throw new RuntimeException(e);
         }
     }
+
     public void saveValidator(Validator validator, String ipAddress, int port) {
         Connection conn = null;
         PreparedStatement validatorStmt = null;
@@ -301,7 +366,6 @@ public class UserDAO {
         return null;
     }
 
-
     private User createUserFromResultSet(ResultSet rs, UserRole role) throws Exception {
         User user = switch (role) {
             case CLIENT -> new Client(
@@ -322,9 +386,23 @@ public class UserDAO {
         // Set public and private keys
         user.setPublicKey(rs.getString("public_key"));
         user.setPrivateKey(EncryptionUtil.decrypt(rs.getString("private_key")));
-        user.setBalance(rs.getDouble("balance"));
+
+        // Handle balance with Redis
+        int userId = rs.getInt("id");
+        Double cachedBalance = RedisUtil.getUserBalance(userId);
+        if (cachedBalance != null) {
+            System.out.println("Retrieved balance from Redis for user ID: " + userId);
+            user.setBalance(cachedBalance);
+        } else {
+            double dbBalance = rs.getDouble("balance");
+            user.setBalance(dbBalance);
+            RedisUtil.setUserBalance(userId, dbBalance);
+            System.out.println("Updated Redis with balance for user ID: " + userId);
+        }
+
         return user;
     }
+
     public void updateUser(User user) {
         String sql = "UPDATE users SET username = ?, role = ?, created_at = ?, password = ?, public_key = ?, private_key = ? WHERE username = ?";
 
@@ -352,7 +430,6 @@ public class UserDAO {
             throw new RuntimeException(e);
         }
     }
-
 
     public List<Validator> getValidators() {
         List<Validator> validatorList = new ArrayList<>();
@@ -391,26 +468,35 @@ public class UserDAO {
         }
 
         return validatorList;
-    }public List<Client> getAllClients() {
+    }
+
+    public List<Client> getAllClients() {
         List<Client> clientList = new ArrayList<>();
-        String sql = "SELECT * FROM users WHERE role = 'CLIENT'";  // Assurez-vous que la table 'users' existe
+        String sql = "SELECT * FROM users WHERE role = 'CLIENT'";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            ResultSet rs = stmt.executeQuery();  // Exécuter la requête et obtenir le ResultSet
+            ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                // Créer un objet Client à partir des données du ResultSet
                 int userId = rs.getInt("id");
                 String username = rs.getString("username");
                 String role = rs.getString("role");
                 String password = rs.getString("password");
-                double balance = rs.getDouble("balance");
                 String publicKey = rs.getString("public_key");
                 String privateKey = rs.getString("private_key");
 
-                // Créer et retourner un objet Admin
-                Client client = new Client(userId, username, password, balance, publicKey, privateKey);
+                // Fetch balance from Redis if available, otherwise fallback to DB
+                Double balance = RedisUtil.getUserBalance(userId);
+                if (balance == null) {
+                    balance = rs.getDouble("balance");
+                    RedisUtil.setUserBalance(userId, balance); // Cache the balance for future queries
+                }
 
+                // Store the balance and userId using the public key in Redis
+                RedisUtil.setPublicKeyBalance(publicKey, userId, balance);
+
+                // Create and add the Client object
+                Client client = new Client(userId, username, password, balance, publicKey, privateKey);
                 clientList.add(client);
             }
 
@@ -421,49 +507,18 @@ public class UserDAO {
 
         return clientList;
     }
-    public void updateValidatorBalance(Validator validator, double newBalance) {
-        String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'VALIDATOR'";
 
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setDouble(1, newBalance);  // Définir le nouveau solde
-            stmt.setString(2, validator.getUsername());  // Utiliser le nom d'utilisateur du validateur
-
-            int rowsUpdated = stmt.executeUpdate();
-            if (rowsUpdated > 0) {
-                System.out.println("Le solde du validateur " + validator.getUsername() + " a été mis à jour.");
-            } else {
-                System.out.println("Aucun validateur trouvé avec le nom d'utilisateur : " + validator.getUsername());
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("Échec de la mise à jour du solde pour le validateur : " + validator.getUsername(), e);
-        }
-    }
-    public void updateAdminBalance(Admin admin, double newBalance) {
-        String sql = "UPDATE users SET balance = ? WHERE id = ? AND role = 'ADMIN'";
-
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setDouble(1, newBalance);  // Définir le nouveau solde
-            stmt.setInt(2, admin.getId());  // Utiliser le nom d'utilisateur du validateur
-
-            int rowsUpdated = stmt.executeUpdate();
-            if (rowsUpdated > 0) {
-                System.out.println("Le solde du admin " + admin.getUsername() + " a été mis à jour.");
-            } else {
-                System.out.println("Aucun admin trouvé avec l id : " + admin.getId());
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("Échec de la mise à jour du solde pour admin : " + admin.getUsername(), e);
-        }
-    }
     public boolean updateUserBalance(User user, double newBalance) {
         String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'CLIENT'";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setDouble(1, newBalance);  // Définir le nouveau solde
-            stmt.setString(2, user.getUsername());  // Utiliser le nom d'utilisateur du validateur
+            stmt.setDouble(1, newBalance);
+            stmt.setString(2, user.getUsername());
 
             int rowsUpdated = stmt.executeUpdate();
             if (rowsUpdated > 0) {
+                // Update Redis cache
+                RedisUtil.setUserBalance(user.getId(), newBalance);
                 System.out.println("Le solde du validateur " + user.getUsername() + " a été mis à jour.");
                 return true;
             } else {
@@ -472,6 +527,26 @@ public class UserDAO {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Échec de la mise à jour du solde pour le validateur : " + user.getUsername(), e);
+        }
+    }
+
+    public void updateAdminBalance(Admin admin, double newBalance) {
+        String sql = "UPDATE users SET balance = ? WHERE id = ? AND role = 'ADMIN'";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setDouble(1, newBalance);
+            stmt.setInt(2, admin.getId());
+
+            int rowsUpdated = stmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                // Update Redis cache
+                RedisUtil.setUserBalance(admin.getId(), newBalance);
+                System.out.println("Le solde du admin " + admin.getUsername() + " a été mis à jour.");
+            } else {
+                System.out.println("Aucun admin trouvé avec l id : " + admin.getId());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Échec de la mise à jour du solde pour admin : " + admin.getUsername(), e);
         }
     }
 
@@ -492,6 +567,7 @@ public class UserDAO {
             throw new RuntimeException("Failed to delete validator: " + validator.getUsername(), e);
         }
     }
+
     public User findUserById(int clientId) {
         String sql = "SELECT * FROM users WHERE id = ?";
 
@@ -526,6 +602,7 @@ public class UserDAO {
         rs.beforeFirst(); // Revenir au début du ResultSet
         return rowCount;
     }
+
     public Admin getAdminFromDatabase(int adminId) {
 
         // Requête SQL pour récupérer les informations de l'administrateur
@@ -561,6 +638,7 @@ public class UserDAO {
             return null;
         }
     }
+
     public Validator getValidatorFromDatabase(int validatorId) {
 
         // Requête SQL pour récupérer les informations de l'administrateur
@@ -598,41 +676,52 @@ public class UserDAO {
             return null;
         }
     }
-    public Client getClientFromDatabase(int clientId) {
 
-        // Requête SQL pour récupérer les informations de l'administrateur
-        String sql = "SELECT id, username, role, created_at, password, balance, public_key, private_key, is_connected, last_connection " +
-                "FROM users WHERE id = ? AND role = 'CLIENT'";
+    public Client getClientFromDatabase(int clientId) {
+        // Check Redis cache first
+        Double cachedBalance = RedisUtil.getUserBalance(clientId);
+        if (cachedBalance != null) {
+            System.out.println("Retrieved balance from Redis for client ID: " + clientId);
+        }
+
+        // SQL query to get client info
+        String sql = """
+        SELECT id, username, password, balance, public_key, private_key
+        FROM users 
+        WHERE id = ? AND role = 'CLIENT'
+    """;
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            // Remplacer ? par l'ID de l'administrateur
             statement.setInt(1, clientId);
 
-            // Exécuter la requête et récupérer les résultats
             ResultSet resultSet = statement.executeQuery();
 
             if (resultSet.next()) {
-                // Récupérer les données de l'administrateur depuis le ResultSet
                 int id = resultSet.getInt("id");
                 String username = resultSet.getString("username");
                 String password = resultSet.getString("password");
-                double balance = resultSet.getDouble("balance");
+                double balance = cachedBalance != null ? cachedBalance : resultSet.getDouble("balance");
                 String publicKey = resultSet.getString("public_key");
                 String privateKey = resultSet.getString("private_key");
 
-                // Créer et retourner un objet Admin
-                Client client = new Client(id, username, password, balance, publicKey, privateKey);
-                return client;
+                // Update Redis if the balance was retrieved from the database
+                if (cachedBalance == null) {
+                    RedisUtil.setPublicKeyBalance(publicKey, id, balance);
+                    System.out.println("Updated balance in Redis for public key: " + publicKey);
+                }
+
+                // Create and return the Client object
+                return new Client(id, username, password, balance, publicKey, privateKey);
             } else {
-                // Si l'administrateur n'est pas trouvé
-                System.out.println("Aucun client trouvé avec l'ID " + clientId);
-                return null;
+                System.out.println("No client found with ID: " + clientId);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
-            return null;
+            throw new RuntimeException("Failed to retrieve client data for ID: " + clientId, e);
         }
+
+        return null; // Return null if no client was found
     }
+
     public String getPublicKeyByUserId(int userId) throws SQLException {
         String publicKey = null;
         String sql = "SELECT public_key FROM users WHERE id = ?";

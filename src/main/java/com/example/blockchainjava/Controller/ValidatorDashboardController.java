@@ -1179,7 +1179,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         if (adjustmentAmount < 0) {
             double newValidatorBalance = validator.getBalance() + Math.abs(adjustmentAmount);
             validator.setBalance(newValidatorBalance);
-            userDAO.updateValidatorBalance(validator, newValidatorBalance); // Mise à jour du solde du validateur
+            userDAO.updateUserBalance(validator, newValidatorBalance); // Mise à jour du solde du validateur
         }
 
         // Afficher un message de succès

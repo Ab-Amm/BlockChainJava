@@ -10,6 +10,7 @@ import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.User;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Util.Network.SocketServer;
+import com.example.blockchainjava.Util.RedisUtil;
 import com.example.blockchainjava.Util.Security.HashUtil;
 import com.example.blockchainjava.Util.Security.SecurityUtils;
 
@@ -84,8 +85,15 @@ public class BlockChain {
             }
 
             // Vérifier que le solde de l'expéditeur est suffisant
-            User sender = userDAO.findUserById(transaction.getSenderId());
-            if (sender.getBalance() < transaction.getAmount()) {
+            Double senderBalance = RedisUtil.getUserBalance(transaction.getSenderId());
+            if (senderBalance == null) {
+                // Fallback to database if Redis is null
+                User sender = userDAO.findUserById(transaction.getSenderId());
+                senderBalance = sender.getBalance();
+                RedisUtil.setUserBalance(transaction.getSenderId(), senderBalance);
+            }
+
+            if (senderBalance < transaction.getAmount()) {
                 System.err.println("Le solde de l'expéditeur pour la transaction ID " + transaction.getId() + " est insuffisant.");
                 return false;
             }
@@ -677,33 +685,11 @@ public class BlockChain {
 
                     // Verify the transaction in the block
                     Transaction transaction = block.getTransaction();
-                    if (transaction != null) {
-                        // Verify the transaction's signature
-                        PublicKey senderPublicKey = SecurityUtils.decodePublicKey(
-                                userDAO.getPublicKeyByUserId(transaction.getSenderId())
-                        );
-                        boolean isSignatureValid = SecurityUtils.verifySignature(
-                                transaction.getDataToSign(),
-                                transaction.getSignature(),
-                                senderPublicKey
-                        );
-
-                        if (!isSignatureValid) {
-                            System.err.println("[BlockChain] ❌ Invalid signature for transaction ID: " + transaction.getId());
-                            return false;
-                        }
-
-                        // Verify sender's balance (if applicable)
-                        if (transaction.getSenderId() != null) {
-                            User sender = userDAO.findUserById(transaction.getSenderId());
-                            if (sender.getBalance() < transaction.getAmount()) {
-                                System.err.println("[BlockChain] ❌ Insufficient balance for transaction ID: " + transaction.getId());
-                                return false;
-                            }
-                        }
+                    if (!validateTransaction(transaction)) {
+                        System.err.println("[BlockChain] ❌ Invalid transaction in block ID: " + block.getBlockId());
+                        return false;
                     }
 
-                    // Update the previousHash for the next iteration
                     previousHash = block.getCurrentHash();
                 }
 
@@ -1069,49 +1055,50 @@ public class BlockChain {
 
     public void updateAllClientBalances() {
         try {
-            // Get all clients from the database
-            List<Client> allClients = userDAO.getAllClients();
+            // Retrieve all clients from the database
+            List<Client> clients = userDAO.getAllClients();
 
-            // For each client, recalculate their balance and update it
-            for (Client client : allClients) {
+            for (Client client : clients) {
                 double calculatedBalance = 0.0;
-                System.out.println("Client ID: " + client.getId() + ", publickey: " + client.getPublicKey());
 
-                // Get all transactions from the blockchain
+                // Calculate the balance from the blockchain
                 for (Block block : chain) {
-
                     Transaction transaction = block.getTransaction();
-
-                    // If the client is the sender, subtract the amount
                     if (transaction.getSenderId() == client.getId()) {
                         calculatedBalance -= transaction.getAmount();
                     }
-
-                    // If the client is the receiver (matching their public key), add the amount
                     if (transaction.getReceiverKey().equals(client.getPublicKey())) {
                         calculatedBalance += transaction.getAmount();
-                        System.out.println("received Transaction ID: " + transaction.getId() + ", Amount: " + transaction.getAmount() + ", Sender ID: " + transaction.getSenderId() + ", Receiver ID: " + transaction.getReceiverKey());
-                        System.out.println("calculatedBalance: " + calculatedBalance);
                     }
                 }
 
-                // Update the client's balance in the database
+                // Update both the database and Redis cache
                 client.setBalance(calculatedBalance);
-                System.out.println("this is the setted balance :"+client.getBalance());
-                userDAO.updateUserBalance(client, calculatedBalance);
 
+                // Update database
+                try {
+                    userDAO.updateUserBalance(client, calculatedBalance);
+                } catch (Exception e) {
+                    System.err.println("Failed to update database balance for client ID: " + client.getId());
+                    e.printStackTrace();
+                }
+
+                // Update Redis cache
+                try {
+                    RedisUtil.setUserBalance(client.getId(), calculatedBalance);
+                } catch (Exception e) {
+                    System.err.println("Failed to update Redis cache for client ID: " + client.getId());
+                    e.printStackTrace();
+                }
+
+                // Log success
                 System.out.println("Updated balance for client " + client.getUsername() +
                         " (ID: " + client.getId() + "): " + calculatedBalance);
             }
-
-            System.out.println("Successfully updated all client balances based on blockchain history.");
-
         } catch (Exception e) {
-            System.err.println("Error updating client balances: " + e.getMessage());
+            System.err.println("An error occurred while updating client balances:");
             e.printStackTrace();
         }
     }
-
-
 
 }
