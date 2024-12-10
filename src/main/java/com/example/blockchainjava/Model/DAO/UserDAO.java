@@ -25,11 +25,11 @@ public class UserDAO {
     }
 
     public Client getClientByPublicKey(String publicKey) {
-        // Check Redis cache first
-        Double cachedBalance = RedisUtil.getBalanceByPublicKey(publicKey);
-        if (cachedBalance != null) {
-            System.out.println("Retrieved balance from Redis for public key: " + publicKey);
-        }
+//        // Check Redis cache first
+//        Double cachedBalance = RedisUtil.getBalanceByPublicKey(publicKey);
+//        if (cachedBalance != null) {
+//            System.out.println("Retrieved balance from Redis for public key: " + publicKey);
+//        }
 
         // SQL query to get client info
         String sql = """
@@ -47,18 +47,21 @@ public class UserDAO {
                 int id = resultSet.getInt("id");
                 String username = resultSet.getString("username");
                 String password = resultSet.getString("password");
-                double balance = cachedBalance != null ? cachedBalance : resultSet.getDouble("balance");
+                double balance = resultSet.getDouble("balance");
                 String retrievedPublicKey = resultSet.getString("public_key");
                 String privateKey = resultSet.getString("private_key");
 
-                // Update Redis if the balance was retrieved from the database
+
+                Double cachedBalance = RedisUtil.getUserBalance(id);
+
                 if (cachedBalance == null) {
-                    RedisUtil.setPublicKeyBalance(retrievedPublicKey, id, balance);
+                    RedisUtil.setUserBalance(id, balance);
+                    cachedBalance = RedisUtil.getUserBalance(id);
                     System.out.println("Updated balance in Redis for public key: " + retrievedPublicKey);
                 }
 
                 // Create and return the Client object
-                return new Client(id, username, password, balance, retrievedPublicKey, privateKey);
+                return new Client(id, username, password, cachedBalance, retrievedPublicKey, privateKey);
             } else {
                 System.out.println("No client found with public key: " + publicKey);
             }
@@ -511,9 +514,6 @@ public class UserDAO {
                     RedisUtil.setUserBalance(userId, balance); // Cache the balance for future queries
                 }
 
-                // Store the balance and userId using the public key in Redis
-                RedisUtil.setPublicKeyBalance(publicKey, userId, balance);
-
                 // Create and add the Client object
                 Client client = new Client(userId, username, password, balance, publicKey, privateKey);
                 clientList.add(client);
@@ -721,7 +721,7 @@ public class UserDAO {
 
                 // Update Redis if the balance was retrieved from the database
                 if (cachedBalance == null) {
-                    RedisUtil.setPublicKeyBalance(publicKey, id, balance);
+                    RedisUtil.setUserBalance(id, balance);
                     System.out.println("Updated balance in Redis for public key: " + publicKey);
                 }
 
