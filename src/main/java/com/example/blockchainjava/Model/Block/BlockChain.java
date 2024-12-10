@@ -718,9 +718,7 @@ public class BlockChain {
             System.err.println("[BlockChain] ❌ Error verifying local storage: " + e.getMessage());
             e.printStackTrace();
             return false;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (Exception e) {
+        }catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

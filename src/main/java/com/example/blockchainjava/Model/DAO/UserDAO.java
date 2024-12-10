@@ -492,6 +492,21 @@ public class UserDAO {
 
         return validatorList;
     }
+    public boolean areValidatorsConnected() {
+        String sql = "SELECT COUNT(*) FROM users WHERE role = 'VALIDATOR' AND is_connected = 1"; // Vérifier les validateurs connectés
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                int connectedValidatorsCount = resultSet.getInt(1); // Récupérer le nombre de validateurs connectés
+                return connectedValidatorsCount >= 2; // Retourne true si au moins 2 validateurs sont connectés
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false; // Si une erreur survient ou aucun validateur n'est connecté, on retourne false
+    }
+
     public List<Client> getAllClients() {
         List<Client> clientList = new ArrayList<>();
         String sql = "SELECT * FROM users WHERE role = 'CLIENT'";
