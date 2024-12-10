@@ -115,20 +115,20 @@ public class BlockChain {
 
     public synchronized Block addBlock(Transaction transaction, String validatorSignature) {
         validateBlockParameters(transaction, validatorSignature);
-        
+
         synchronized(chainLock) {
             String previousHash = chain.isEmpty() ? "0" : chain.getLast().getCurrentHash();
             int newBlockId = generateNewBlockId();
             Block newBlock = new Block(newBlockId, previousHash, transaction, validatorSignature);
-            
+
             // Add to chain and increment version
             chain.add(newBlock);
             chainVersion++;
-            
+
             try {
                 // Save to both database and local storage
                 blockDAO.saveBlock(newBlock);
-                
+
                 updateTransactionWithBlockIdAndStatus(transaction, newBlock);
 
                 // Update user balances
@@ -227,7 +227,7 @@ public class BlockChain {
 
                 System.out.println("[BlockChain] 🔄 Starting block parsing...");
                 // Parse blocks
-                Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"]*)\",\\s*\"currentHash\":\\s*\"([^\"]*)\",\\s*\"timestamp\":\\s*\"([^\"]*)\",\\s*\"validatorSignature\":\\s*\"([^\"]*)\",\\s*\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
+                Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"])\",\\s\"currentHash\":\\s*\"([^\"])\",\\s\"timestamp\":\\s*\"([^\"])\",\\s\"validatorSignature\":\\s*\"([^\"])\",\\s\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
                 Matcher blockMatcher = blockPattern.matcher(jsonContent);
 
                 int blockCount = 0;
@@ -244,7 +244,7 @@ public class BlockChain {
 
                     System.out.println("[BlockChain] 💳 Parsing transaction for block " + blockId);
                     // Parse transaction
-                    Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"]*)\",\\s*\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"]*)\",\\s*\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"]*)\",\\s*\"signature\":\\s*\"([^\"]*)\"");
+                    Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"])\",\\s\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"])\",\\s\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"])\",\\s\"signature\":\\s*\"([^\"]*)\"");
                     Matcher txMatcher = txPattern.matcher(transactionJson);
 
                     if (txMatcher.find()) {
@@ -718,9 +718,7 @@ public class BlockChain {
             System.err.println("[BlockChain] ❌ Error verifying local storage: " + e.getMessage());
             e.printStackTrace();
             return false;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (Exception e) {
+        }catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -728,7 +726,7 @@ public class BlockChain {
 
     private List<Block> parseBlockchainFromJson(String jsonContent) {
         List<Block> blocks = new ArrayList<>();
-        Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"]*)\",\\s*\"currentHash\":\\s*\"([^\"]*)\",\\s*\"timestamp\":\\s*\"([^\"]*)\",\\s*\"validatorSignature\":\\s*\"([^\"]*)\",\\s*\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
+        Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"])\",\\s\"currentHash\":\\s*\"([^\"])\",\\s\"timestamp\":\\s*\"([^\"])\",\\s\"validatorSignature\":\\s*\"([^\"])\",\\s\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
         Matcher blockMatcher = blockPattern.matcher(jsonContent);
 
         while (blockMatcher.find()) {
@@ -741,7 +739,7 @@ public class BlockChain {
 
             Transaction transaction = null;
             if (transactionJson != null && !transactionJson.isBlank()) {
-                Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"]*)\",\\s*\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"]*)\",\\s*\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"]*)\",\\s*\"signature\":\\s*\"([^\"]*)\"");
+                Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"])\",\\s\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"])\",\\s\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"])\",\\s\"signature\":\\s*\"([^\"]*)\"");
                 Matcher txMatcher = txPattern.matcher(transactionJson);
 
                 if (txMatcher.find()) {
@@ -791,16 +789,16 @@ public class BlockChain {
             System.out.println("[BlockChain] 🔍 Scanning for old blockchain versions...");
             // Get all blockchain files
             List<Path> versionFiles = Files.list(storageDir)
-                .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
-                .sorted((p1, p2) -> {
-                    long v1 = extractVersion(p1.getFileName().toString());
-                    long v2 = extractVersion(p2.getFileName().toString());
-                    return Long.compare(v2, v1); // Sort in descending order
-                })
-                .collect(Collectors.toList());
+                    .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
+                    .sorted((p1, p2) -> {
+                        long v1 = extractVersion(p1.getFileName().toString());
+                        long v2 = extractVersion(p2.getFileName().toString());
+                        return Long.compare(v2, v1); // Sort in descending order
+                    })
+                    .collect(Collectors.toList());
 
             System.out.println("[BlockChain] 📊 Found " + versionFiles.size() + " version files, keeping newest " + keepCount);
-            
+
             // Delete old versions
             if (versionFiles.size() > keepCount) {
                 for (int i = keepCount; i < versionFiles.size(); i++) {
@@ -814,8 +812,8 @@ public class BlockChain {
                 }
                 System.out.println("[BlockChain] ✅ Cleanup complete. Kept " + keepCount + " newest versions");
             } else {
-                System.out.println("[BlockChain] ℹ️ No cleanup needed. Current versions (" + versionFiles.size() + 
-                                 ") <= max versions (" + keepCount + ")");
+                System.out.println("[BlockChain] ℹ️ No cleanup needed. Current versions (" + versionFiles.size() +
+                        ") <= max versions (" + keepCount + ")");
             }
         } catch (IOException e) {
             System.err.println("[BlockChain] ❌ Error during cleanup: " + e.getMessage());
@@ -888,7 +886,7 @@ public class BlockChain {
         CompareResult result = new CompareResult();
         result.setLocalVersion(this.chainVersion);
         result.setOtherVersion(otherVersion);
-        
+
         if (otherVersion > this.chainVersion) {
             if (validateLoadedChain(otherChain)) {
                 result.setNeedsUpdate(true);
@@ -903,7 +901,7 @@ public class BlockChain {
             result.setNeedsUpdate(false);
             result.setValidChain(validateLoadedChain(otherChain));
         }
-        
+
         return result;
     }
 
@@ -913,7 +911,7 @@ public class BlockChain {
         }
 
         String previousHash = "0"; // Genesis block has no previous hash
-        
+
         for (Block block : loadedChain) {
             // Verify block hash
             if (!block.getCurrentHash().equals(block.calculateHash())) {
@@ -936,7 +934,7 @@ public class BlockChain {
 
             previousHash = block.getCurrentHash();
         }
-        
+
         return true;
     }
 
@@ -996,17 +994,17 @@ public class BlockChain {
         System.out.println("🔄 Starting blockchain synchronization");
         try {
             if (otherChain.getVersion() > this.chainVersion) {
-                System.out.println("📊 Other chain version " + otherChain.getVersion() + 
-                                 " is newer than local version " + this.chainVersion);
-                
+                System.out.println("📊 Other chain version " + otherChain.getVersion() +
+                        " is newer than local version " + this.chainVersion);
+
                 // Clear and update chain data
                 this.chain.clear();
                 this.chain.addAll(otherChain.getBlocks());
                 this.chainVersion = otherChain.getVersion();
-                
+
                 // Save synchronized chain to storage
                 saveToLocalStorage();
-                
+
                 System.out.println("✅ Successfully synchronized to version " + this.chainVersion);
             } else {
                 System.out.println("ℹ️ Local chain is already up to date");

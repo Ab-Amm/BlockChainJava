@@ -18,6 +18,8 @@ public class User {
     private String privateKey;
     private String publicKey;
     private double balance ;
+    public User(){
+    }
 
 
     public User(int id , String username , double balance ,UserRole role){

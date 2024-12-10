@@ -10,9 +10,9 @@ public class DatabaseConnection {
 //    private static final String URL = "jdbc:mysql://25.51.250.189:3308/blockchain";
 //    private static final String USER = "root";
 //    private static final String PASSWORD = "2004";
-    private static final String URL = "jdbc:mysql://localhost:3306/Blockchain";
+    private static final String URL = "jdbc:mysql://25.51.250.189:3308/Blockchain";
     private static final String USER = "root";
-    private static final String PASSWORD = "";
+    private static final String PASSWORD = "2004";
 
     private static Connection connection;
 
