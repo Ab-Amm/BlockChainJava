@@ -30,7 +30,7 @@
                        prefHeight="40"/>
 
             <!-- Send button -->
-            <Button text="Send" onAction="#submitTransaction"
+            <Button fx:id="submitButton" text="Send" onAction="#submitTransaction"
                     style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 14; -fx-font-weight: bold;"
                     maxWidth="Infinity"/>
 

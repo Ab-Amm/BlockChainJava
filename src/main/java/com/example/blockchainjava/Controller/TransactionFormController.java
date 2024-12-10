@@ -12,9 +12,12 @@ import com.example.blockchainjava.Model.User.Session;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import com.example.blockchainjava.Util.Security.SecurityUtils;
 import com.example.blockchainjava.Model.DAO.UserDAO;
+import javafx.scene.paint.Color;
 
 import java.security.PrivateKey;
 import java.sql.Connection;
@@ -28,11 +31,24 @@ public class TransactionFormController {
     private TextField receiverField;
     @FXML
     private TextField amountField;
+    @FXML
+    private Button submitButton; // Déclarez le bouton de soumission
+    @FXML
+    private Label statusLabel;
     private TransactionDAO transactionDAO;
     private final Connection connection;
     private UserDAO userDAO;
     private Client client;
     // Default constructor for FXML
+
+    @FXML
+    public void initialize() {
+        // Exemple d'initialisation
+        submitButton.setDisable(true); // Pour désactiver le bouton par défaut
+        receiverField.textProperty().addListener((obs, oldText, newText) -> updateSubmitButtonStatus());
+        amountField.textProperty().addListener((obs, oldText, newText) -> updateSubmitButtonStatus());
+    }
+
     public TransactionFormController() {
         // Initialize the database connection
         this.connection = DatabaseConnection.getConnection();
@@ -41,6 +57,27 @@ public class TransactionFormController {
         this.userDAO = new UserDAO();
         this.client = userDAO.getClientFromDatabase(currentUser.getId());
     }
+    private void updateSubmitButtonStatus() {
+        try {
+            // Vérifier si les validateurs sont connectés via userDAO
+            if (userDAO.areValidatorsConnected()) {
+                submitButton.setDisable(false);  // Activer le bouton "Submit"
+                statusLabel.setText("Validators are connected. You can submit your transaction.");
+                statusLabel.setTextFill(Color.GREEN);  // Optionnel: mettre un message vert
+            } else {
+                submitButton.setDisable(true);  // Désactiver le bouton "Submit"
+                statusLabel.setText("No validators connected. Please try again later.");
+                statusLabel.setTextFill(Color.RED);  // Optionnel: mettre un message rouge
+            }
+        } catch (Exception e) {
+            // Gérer les erreurs et afficher un message d'erreur dans le label
+            submitButton.setDisable(true);  // Désactiver le bouton en cas d'erreur
+            statusLabel.setText("Error checking validators status.");
+            statusLabel.setTextFill(Color.RED);
+            e.printStackTrace();  // Optionnel: afficher l'exception dans la console pour débogage
+        }
+    }
+
 
     // Méthode pour générer la signature avec la clé privée décodée
     public String generateSignature(Transaction transaction, PrivateKey privateKey) {
@@ -58,6 +95,7 @@ public class TransactionFormController {
 
     // Method to handle form submission
     public void submitTransaction() {
+        updateSubmitButtonStatus();
         try {
             System.out.println("=== Start of submitTransaction ===");
 

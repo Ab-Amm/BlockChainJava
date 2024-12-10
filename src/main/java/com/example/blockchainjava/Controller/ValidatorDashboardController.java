@@ -526,7 +526,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             this.validator = userDAO.getValidatorFromDatabase(currentUser.getId());
             String signature = validator.sign(transaction , this.validator);
             System.out.println("Signature: " + signature);
-            blockchain.addBlock(transaction, signature);
+            Block a=blockchain.addBlock(transaction, signature);
+            broadcastNewBlock(a);
             updateBlockchainView();
             System.out.println("Transaction " + transaction.getId() + " successfully added to the blockchain.");
 
