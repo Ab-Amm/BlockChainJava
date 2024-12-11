@@ -20,6 +20,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
 import javafx.stage.Stage;
 
@@ -33,6 +37,8 @@ public class ClientDashboardController {
 
     @FXML
     private TableView<Transaction> transactionTable;
+    ScheduledExecutorService dashboardUpdateExecutor = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledExecutorService balanceUpdateExecutor = Executors.newSingleThreadScheduledExecutor();
 
     @FXML
     private TableColumn<Transaction, Integer> transactionIdColumn;
@@ -52,7 +58,7 @@ public class ClientDashboardController {
     private TableColumn<Transaction, String> receiverColumn;
 
     private Map<Integer, String> receiverUsernameMap = new HashMap<>();
-    private TransactionDAO transactionDAO; // Classe DAO pour accéder aux transactions
+    private TransactionDAO transactionDAO;
     private ObservableList<Transaction> transactionsList;
     private final Connection connection;
     private Client client;
@@ -114,8 +120,39 @@ public class ClientDashboardController {
             Stage stage = (Stage) usernameLabel.getScene().getWindow();
             stage.setOnCloseRequest(event -> stop());
         });
-    }
+        balanceUpdateExecutor.scheduleAtFixedRate(() -> {
+            Platform.runLater(this::updateBalance); // Met à jour l'interface utilisateur sur le thread JavaFX
+        }, 0, 2, TimeUnit.SECONDS); // Vérifier toutes les 2 secondes
 
+        Platform.runLater(() -> {
+            Stage stage = (Stage) usernameLabel.getScene().getWindow();
+            stage.setOnCloseRequest(event -> stop());
+        });
+
+        dashboardUpdateExecutor.scheduleAtFixedRate(() -> {
+            Platform.runLater(this::updateDashboard); // Met à jour l'interface utilisateur sur le thread JavaFX
+        }, 0, 5, TimeUnit.SECONDS); // Unité de temps : secondes
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (client != null) {
+                userDAO.updateUserConnection(client.getId(), false);
+            }
+        }));
+    }
+    private void updateBalance() {
+        if (client != null) {
+            // Récupérer la balance du client depuis la base de données
+            double currentBalance = userDAO.getClientBalance(client.getId());
+
+            // Mettre à jour la balance affichée dans l'interface utilisateur si elle a changé
+            Platform.runLater(() -> {
+                if (client.getBalance() != currentBalance) {
+                    client.setBalance(currentBalance);
+                    balanceLabel.setText(String.format("$%.2f", currentBalance));
+                }
+            });
+        }
+    }
     /**
      * Définit le client actuel et met à jour les informations du tableau de bord.
      *

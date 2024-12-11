@@ -119,6 +119,37 @@ public class UserDAO {
         return null; // Return null if no validator was found
     }
 
+    public double getClientBalance(int id) {
+        String sql = """
+        SELECT u.id, u.username, u.password, u.balance
+        FROM users u
+        WHERE u.id = ? AND u.role = 'CLIENT'
+    """;
+
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                stmt.setInt(1, id);
+                ResultSet rs = stmt.executeQuery();
+
+                if (rs.next()) {
+                    String username = rs.getString("username");
+                    String password = rs.getString("password");
+                    double balance = rs.getDouble("balance");
+
+                    // Cache the balance in Redis
+                    RedisUtil.setUserBalance(id, balance);
+
+                    // Return the client object
+                    Client b=new Client(id, username, password, balance);
+                    return b.getBalance();
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to load client with id: " + id, e);
+            }
+//        }
+
+        return 0;
+    }
+
     public Client getClientData(int id) {
         String sql = """
         SELECT u.id, u.username, u.password, u.balance
