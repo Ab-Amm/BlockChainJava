@@ -12,9 +12,9 @@
 
     <!-- Conteneur principal pour les onglets -->
     <VBox alignment="CENTER" maxHeight="600" maxWidth="750" spacing="20" style="-fx-background-color: white; -fx-background-radius: 15; -fx-padding: 40; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 0);">
-        <TabPane fx:id="mainTabPane" maxWidth="700" tabClosingPolicy="UNAVAILABLE">
+        <TabPane fx:id="mainTabPane" maxWidth="700" tabClosingPolicy="UNAVAILABLE" style="-fx-tab-min-width: 100px;">
             <!-- Login Tab -->
-            <Tab fx:id="loginTab" text="Login">
+            <Tab fx:id="loginTab" text="Login" style="-fx-background-color: white; -fx-text-fill: black;">
                 <VBox alignment="CENTER" spacing="30" style="-fx-padding: 25;">
                     <Label style="-fx-font-size: 26px; -fx-font-weight: bold;" text="Welcome to Blockchain Application" textAlignment="CENTER" />
                     <VBox maxWidth="500" spacing="20">
@@ -26,7 +26,7 @@
             </Tab>
 
             <!-- Sign Up Tab -->
-            <Tab fx:id="signupTab" text="Sign Up">
+            <Tab fx:id="signupTab" text="Sign Up" style="-fx-background-color: #f0f0f0; -fx-text-fill: grey;">
                 <VBox alignment="CENTER" spacing="30" style="-fx-padding: 25;">
                     <Label style="-fx-font-size: 26px; -fx-font-weight: bold;" text="Create New Account" />
                     <VBox maxWidth="500" spacing="20">
@@ -39,5 +39,4 @@
             </Tab>
         </TabPane>
     </VBox>
-
 </VBox>

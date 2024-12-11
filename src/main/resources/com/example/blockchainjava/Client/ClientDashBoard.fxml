@@ -4,6 +4,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 <?import com.example.blockchainjava.Controller.*?>
+
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.Controller.ClientDashboardController">
 
     <top>
@@ -33,13 +34,43 @@
                             <TableColumn fx:id="statusColumn" text="Status" prefWidth="130"/>
                             <TableColumn fx:id="dateColumn" text="Date" prefWidth="130"/>
                         </columns>
-
                     </TableView>
+                </VBox>
+            </Tab>
+            <Tab text="Received Transactions History" closable="false">
+                <!-- You can add content for received transactions here -->
+            </Tab>
+
+            <Tab text="View Profile" closable="false">
+                <VBox spacing="20" style="-fx-padding: 20; -fx-background-color: #f0f0f0; -fx-background-radius: 10;">
+
+                    <!-- Username Section -->
+                    <HBox spacing="15" style="-fx-alignment: center-left;">
+                        <Label text="Username:" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2196F3;"/>
+                        <Label fx:id="usernameProfileLabel" style="-fx-text-fill: #333333; -fx-font-size: 14px;"/>
+                    </HBox>
+
+                    <!-- Balance Section -->
+                    <HBox spacing="15" style="-fx-alignment: center-left;">
+                        <Label text="Balance:" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2196F3;"/>
+                        <Label fx:id="balanceProfileLabel" style="-fx-text-fill: #333333; -fx-font-size: 14px;"/>
+                    </HBox>
+
+                    <!-- Public Key Section -->
+                    <HBox spacing="15" style="-fx-alignment: center-left;">
+                        <Label text="Public Key:" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2196F3;"/>
+                        <TextArea fx:id="publicKeyProfileLabel" style="-fx-background-color: #e6f7ff; -fx-font-size: 12px; -fx-pref-width: 350px; -fx-text-fill: #333333;" editable="false" wrapText="true"/>
+                        <!-- Button to Copy Public Key -->
+                        <Button text="Copy" style="-fx-background-color: #2196F3; -fx-text-fill: white;" onAction="#handleCopyPublicKey"/>
+                    </HBox>
+
+                    <!-- Private Key Section -->
+                    <HBox spacing="15" style="-fx-alignment: center-left;">
+                        <Label text="Private Key:" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2196F3;"/>
+                        <Label fx:id="privateKeyProfileLabel" style="-fx-background-color: #e6e6e6; -fx-font-size: 12px; -fx-pref-width: 350px; -fx-text-fill: #333333;"  wrapText="true"/>
+                    </HBox>
 
                 </VBox>
-
-            </Tab>
-            <Tab text="received Transactions History" closable="false">
                 <VBox spacing="10">
                     <padding>
                         <Insets top="10" right="10" bottom="10" left="10"/>
@@ -56,6 +87,7 @@
 
                 </VBox>
             </Tab>
+
         </TabPane>
     </center>
 </BorderPane>

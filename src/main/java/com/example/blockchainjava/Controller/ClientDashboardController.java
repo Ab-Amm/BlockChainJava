@@ -10,9 +10,7 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -25,6 +23,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.example.blockchainjava.Model.DAO.DatabaseConnection;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.stage.Stage;
 
 public class ClientDashboardController {
@@ -34,6 +34,14 @@ public class ClientDashboardController {
 
     @FXML
     private Label balanceLabel;
+    @FXML
+    private Label usernameProfileLabel;
+    @FXML
+    private Label balanceProfileLabel;
+    @FXML
+    private TextArea publicKeyProfileLabel;
+    @FXML
+    private Label privateKeyProfileLabel;
 
     @FXML
     private TableView<Transaction> transactionTable;
@@ -105,6 +113,20 @@ public class ClientDashboardController {
         }));
     }
     @FXML
+    private void handleCopyPublicKey() {
+        String publicKey = publicKeyProfileLabel.getText();
+        ClipboardContent content = new ClipboardContent();
+        content.putString(publicKey);
+        Clipboard.getSystemClipboard().setContent(content);
+
+        // Notification à l'utilisateur
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Copy Successful");
+        alert.setHeaderText("Public Key Copied");
+        alert.setContentText("The public key has been copied to your clipboard.");
+        alert.showAndWait();
+    }
+    @FXML
     public void initialize() {
         User currentUser = Session.getCurrentUser();
         this.client = userDAO.getClientFromDatabase(currentUser.getId());
@@ -120,6 +142,15 @@ public class ClientDashboardController {
             return new SimpleStringProperty(receiverUsername != null ? receiverUsername : "N/A");
         });
 
+        if (client != null) {
+            // Remplir les labels avec les informations du profil utilisateur
+            usernameProfileLabel.setText(client.getUsername());
+            balanceProfileLabel.setText(" " + client.getBalance());
+            publicKeyProfileLabel.setText("" + client.getPublicKey());
+            privateKeyProfileLabel.setText(" (hidden for security)");
+        } else {
+            System.out.println("Client not found.");
+        }
 
         // Associer les colonnes aux propriétés du modèle Transaction
         transactionIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getId()).asObject());
