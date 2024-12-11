@@ -175,7 +175,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
     @FXML
     public void initialize() {
-        synchronizeWithOtherValidators();
+        //synchronizeWithOtherValidators();
         try {
 
             id.setCellValueFactory(cellData -> cellData.getValue().getIdProperty().asObject());
@@ -428,7 +428,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
     }
     private int getRequiredValidatorCount() {
         int connectedValidatorsCount = userDAO.getConnectedValidatorsCount();
-        return (int) Math.ceil(connectedValidatorsCount / 2.0); // Return the majority of connected validators
+        return (int) Math.ceil((connectedValidatorsCount / 2.0)+1); // Return the majority of connected validators
     }
 
     private void addValidatorVoteForTransaction(Transaction transaction, Validator sourceValidator) {
@@ -986,12 +986,11 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             });
 
             // After handling the message, update local storage
-            blockchain.loadFromDatabase();
-            blockchain.saveToLocalStorage();
-            updateValidatorVersion(blockchain.getChainVersion());
-            synchronizeWithOtherValidators();
+            //blockchain.loadFromDatabase();
+            //updateValidatorVersion(blockchain.getChainVersion());
+            //synchronizeWithOtherValidators();
 
-            Platform.runLater(this::updateBlockchainView);
+            //Platform.runLater(this::updateBlockchainView);
         } catch (IOException e) {
             System.err.println("Failed to process validation message: " + e.getMessage());
             e.printStackTrace();
@@ -1003,7 +1002,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         System.out.println("[Validator] Starting validator synchronization...");
         try {
             // Get all validators from database
-            List<Validator> allValidators = userDAO.getAllValidators();
+            List<Validator> allValidators = userDAO.getValidators();
             System.out.println("[Validator] Found " + allValidators.size() + " total validators");
 
             // Get active validators (those who are currently connected)

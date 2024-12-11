@@ -848,6 +848,12 @@ public class BlockChain {
 
     public void addBlock(Block block) {
         chain.add(block);
+        TransactionDAO transactionDAO = new TransactionDAO();
+        boolean balancesUpdated = transactionDAO.processTransactionBalances2(block.getTransaction());
+        if (!balancesUpdated) {
+            throw new RuntimeException("Failed to update user balances after adding block.");
+        }
+        saveToLocalStorage();
     }
 
     public void addObserver(ValidatorDashboardController validatorDashboardController) {
