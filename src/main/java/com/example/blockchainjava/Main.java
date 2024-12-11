@@ -19,7 +19,7 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         try {
             FXMLLoader fxmlLoader = new FXMLLoader(Main.class.getResource("/com/example/blockchainjava/hello-view.fxml"));
-            Scene scene = new Scene(fxmlLoader.load(), 800, 600);
+            Scene scene = new Scene(fxmlLoader.load(), 940, 625);
             scene.getStylesheets().add(Objects.requireNonNull(getClass().getResource("/com/example/blockchainjava/CSS/style.css")).toExternalForm());
 
             primaryStage.setTitle("Blockchain Application");

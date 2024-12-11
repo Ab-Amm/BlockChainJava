@@ -1,60 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.geometry.Insets?>
 
-<?import javafx.collections.FXCollections?>
-<?import java.lang.String?>
-<VBox alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.example.blockchainjava.MainController">
+<VBox alignment="CENTER" prefHeight="430.0" prefWidth="622.0" spacing="20.0" style="-fx-background-image: url('https://i.pinimg.com/736x/1c/84/c7/1c84c7746accc653c2f23aae204b202d.jpg'); -fx-background-repeat: no-repeat; -fx-background-size: cover;" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.blockchainjava.MainController">
 
     <padding>
-        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
+        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
 
-    <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE">
-
-        <!-- Login Tab -->
-        <Tab fx:id="loginTab" text="Login">
-            <VBox spacing="20" alignment="CENTER">
-                <padding>
-                    <Insets top="20" right="20" bottom="20" left="20"/>
-                </padding>
-
-                <Label text="Welcome to Blockchain Application"
-                       style="-fx-font-size: 24px; -fx-font-weight: bold"/>
-
-                <VBox spacing="15" maxWidth="300">
-                    <TextField fx:id="loginUsername" promptText="Username" />
-                    <PasswordField fx:id="loginPassword" promptText="Password" />
-                    <Button text="Login" onAction="#handleLogin"
-                            style="-fx-background-color: #4CAF50; -fx-text-fill: white;"
-                            maxWidth="Infinity"/>
+    <!-- Conteneur principal pour les onglets -->
+    <VBox alignment="CENTER" maxHeight="600" maxWidth="750" spacing="20" style="-fx-background-color: white; -fx-background-radius: 15; -fx-padding: 40; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 0);">
+        <TabPane fx:id="mainTabPane" maxWidth="700" tabClosingPolicy="UNAVAILABLE">
+            <!-- Login Tab -->
+            <Tab fx:id="loginTab" text="Login">
+                <VBox alignment="CENTER" spacing="30" style="-fx-padding: 25;">
+                    <Label style="-fx-font-size: 26px; -fx-font-weight: bold;" text="Welcome to Blockchain Application" textAlignment="CENTER" />
+                    <VBox maxWidth="500" spacing="20">
+                        <TextField fx:id="loginUsername" promptText="Username" />
+                        <PasswordField fx:id="loginPassword" promptText="Password" />
+                        <Button maxWidth="Infinity" onAction="#handleLogin" style="-fx-background-color: #4CAF50; -fx-text-fill: white;" text="Login" />
+                    </VBox>
                 </VBox>
-            </VBox>
-        </Tab>
+            </Tab>
 
-        <!-- Sign Up Tab -->
-        <Tab fx:id="signupTab" text="Sign Up">
-            <VBox spacing="20" alignment="CENTER">
-                <padding>
-                    <Insets top="20" right="20" bottom="20" left="20"/>
-                </padding>
-
-                <Label text="Create New Account"
-                       style="-fx-font-size: 24px; -fx-font-weight: bold"/>
-
-                <VBox spacing="15" maxWidth="300">
-                    <TextField fx:id="signupUsername" promptText="Username"/>
-                    <PasswordField fx:id="signupPassword" promptText="Password"/>
-                    <PasswordField fx:id="signupConfirmPassword" promptText="Confirm Password"/>
-                    <Button text="Sign Up" onAction="#handleSignup"
-                            style="-fx-background-color: #2196F3; -fx-text-fill: white;"
-                            maxWidth="Infinity"/>
+            <!-- Sign Up Tab -->
+            <Tab fx:id="signupTab" text="Sign Up">
+                <VBox alignment="CENTER" spacing="30" style="-fx-padding: 25;">
+                    <Label style="-fx-font-size: 26px; -fx-font-weight: bold;" text="Create New Account" />
+                    <VBox maxWidth="500" spacing="20">
+                        <TextField fx:id="signupUsername" promptText="Username" />
+                        <PasswordField fx:id="signupPassword" promptText="Password" />
+                        <PasswordField fx:id="signupConfirmPassword" promptText="Confirm Password" />
+                        <Button maxWidth="Infinity" onAction="#handleSignup" style="-fx-background-color: #2196F3; -fx-text-fill: white;" text="Sign Up" />
+                    </VBox>
                 </VBox>
-            </VBox>
-        </Tab>
+            </Tab>
+        </TabPane>
+    </VBox>
 
-    </TabPane>
 </VBox>
