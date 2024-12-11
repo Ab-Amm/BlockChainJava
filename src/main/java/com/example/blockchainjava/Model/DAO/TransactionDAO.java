@@ -15,6 +15,7 @@ import java.util.Map;
 public class TransactionDAO {
     private final Connection connection;
     private Map<Integer, String> receiverUsernameMap = new HashMap<>();
+    private Map<Integer, String> senderUsernameMap = new HashMap<>();
 
 
     public TransactionDAO() {
@@ -43,7 +44,28 @@ public class TransactionDAO {
 
         return receiverUsername;
     }
+    public String  getsenderUsername (int transactionId) {
+        String senderUsername = null;
+        String sql = """
+        SELECT u.username AS sender_username
+        FROM transactions t
+        LEFT JOIN users u ON t.sender_id = u.id
+        WHERE t.id = ?
+    """;
 
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, transactionId);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                senderUsername = rs.getString("sender_username");
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to fetch receiver username for transaction ID: " + transactionId);
+        }
+
+        return senderUsername;
+    }
     public Transaction getTransactionById(int transactionId) {
         String sql = "SELECT * FROM transactions WHERE id = ?";
 
@@ -436,4 +458,28 @@ public class TransactionDAO {
             throw new RuntimeException("Failed to update transaction", e);
         }
     }
+    public List<Transaction> getReceivedTransactionsByClient(String publickey) {
+        List<Transaction> transactions = new ArrayList<>();
+        String query = "SELECT * FROM transactions WHERE receiver_key = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, publickey);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                Transaction transaction = new Transaction();
+                transaction.setId(resultSet.getInt("id")); // ID de la transaction
+                transaction.setSenderId(resultSet.getInt("sender_id")); // ID de l'expéditeur
+                transaction.setReceiverKey(resultSet.getString("receiver_key")); // Clé publique du destinataire
+                transaction.setAmount(resultSet.getDouble("amount")); // Montant de la transaction
+                transaction.setStatus(TransactionStatus.valueOf(resultSet.getString("status"))); // Enum pour le statut
+                transaction.setBlockId(resultSet.getInt("block_id")); // ID du bloc associé
+                transaction.setCreatedAt(resultSet.getTimestamp("created_at").toLocalDateTime()); // Date/heure de création
+                transaction.setSignature(resultSet.getString("signature")); // Signature de la transaction
+                transactions.add(transaction);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return transactions;
+    }
+
 }

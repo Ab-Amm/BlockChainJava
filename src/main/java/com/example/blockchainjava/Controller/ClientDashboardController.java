@@ -56,8 +56,26 @@ public class ClientDashboardController {
     private TableColumn<Transaction, String> dateColumn;
     @FXML
     private TableColumn<Transaction, String> receiverColumn;
+    @FXML
+    private TableView<Transaction> transactionTable2;
+
+    @FXML
+    private TableColumn<Transaction, Integer> transactionIdColumn2;
+
+    @FXML
+    private TableColumn<Transaction, String> senderColumn;
+
+    @FXML
+    private TableColumn<Transaction, Double> amountColumn2;
+
+    @FXML
+    private TableColumn<Transaction, String> dateColumn2;
+
+    private ObservableList<Transaction> receivedTransactionsList;
+
 
     private Map<Integer, String> receiverUsernameMap = new HashMap<>();
+    private Map<Integer, String> senderUsernameMap = new HashMap<>();
     private TransactionDAO transactionDAO;
     private ObservableList<Transaction> transactionsList;
     private final Connection connection;
@@ -138,7 +156,29 @@ public class ClientDashboardController {
                 userDAO.updateUserConnection(client.getId(), false);
             }
         }));
+        receivedTransactionsList = FXCollections.observableArrayList();
+
+        transactionIdColumn2.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getId()).asObject());
+        amountColumn2.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getAmount()).asObject());
+        dateColumn2.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(
+                cellData.getValue().getCreatedAt() != null
+                        ? cellData.getValue().getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                        : "N/A"
+        ));
+        senderColumn.setCellValueFactory(cellData -> {
+            Transaction transaction = cellData.getValue();
+
+            // Obtenir les données supplémentaires dans la liste observable
+            String senderUsername = getsenderUsernameFromTransaction(transaction);
+
+            // Retourner une propriété observable
+            return new SimpleStringProperty(senderUsername != null ? senderUsername : "N/A");
+        });
+// Charger les transactions reçues
+        loadReceivedTransactionHistory();
     }
+
+
     private void updateBalance() {
         if (client != null) {
             // Récupérer la balance du client depuis la base de données
@@ -184,6 +224,9 @@ public class ClientDashboardController {
     private String getReceiverUsernameFromTransaction(Transaction transaction) {
         return receiverUsernameMap.getOrDefault(transaction.getId(), "N/A");
     }
+    private String getsenderUsernameFromTransaction(Transaction transaction) {
+        return senderUsernameMap.getOrDefault(transaction.getId(), "N/A");
+    }
 
 
     private void loadTransactionHistory() {
@@ -211,6 +254,31 @@ public class ClientDashboardController {
             transactionTable.setItems(transactionsList);
         } catch (Exception e) {
             System.err.println("Error loading transaction history: " + e.getMessage());
+        }
+    }
+    private void loadReceivedTransactionHistory() {
+        if (client == null) {
+            receivedTransactionsList.clear();
+            transactionTable2.setItems(receivedTransactionsList);
+            return;
+        }
+
+        try {
+            // Récupérer les transactions reçues par le client depuis la base de données
+            List<Transaction> receivedTransactions = transactionDAO.getReceivedTransactionsByClient(client.getPublicKey());
+
+            for (Transaction transaction : receivedTransactions) {
+                int transactionId = transaction.getId();
+                String senderUsername = transactionDAO.getsenderUsername(transactionId);
+                senderUsernameMap.put(transactionId, senderUsername);
+            }
+            // Ajouter les transactions à la liste observable
+            receivedTransactionsList.setAll(receivedTransactions);
+
+            // Lier la liste observable au tableau
+            transactionTable2.setItems(receivedTransactionsList);
+        } catch (Exception e) {
+            System.err.println("Error loading received transaction history: " + e.getMessage());
         }
     }
     public void stop() {

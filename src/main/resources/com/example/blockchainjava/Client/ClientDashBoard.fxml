@@ -40,6 +40,21 @@
 
             </Tab>
             <Tab text="received Transactions History" closable="false">
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+                    <TableView fx:id="transactionTable2" VBox.vgrow="ALWAYS" prefHeight="400">
+                        <columns>
+                            <TableColumn fx:id="transactionIdColumn2" text="ID" prefWidth="40"/>
+                            <TableColumn fx:id="senderColumn" text="sender Username" prefWidth="350"/>
+                            <TableColumn fx:id="amountColumn2" text="Amount" prefWidth="200"/>
+                            <TableColumn fx:id="dateColumn2" text="Date" prefWidth="200"/>
+                        </columns>
+
+                    </TableView>
+
+                </VBox>
             </Tab>
         </TabPane>
     </center>
