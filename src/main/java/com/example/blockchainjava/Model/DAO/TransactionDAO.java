@@ -322,22 +322,47 @@ public class TransactionDAO {
         return transactions;
     }
     public boolean processTransactionBalances(Transaction transaction) {
-        String sqlUpdateSender = "UPDATE users SET balance = balance - ? WHERE id = ?";
-        String sqlUpdateReceiver = "UPDATE users SET balance = balance + ? WHERE public_key = ?";
+        String sqlUpdateSender = "UPDATE users SET balance = ? WHERE id = ?";
+        String sqlUpdateReceiver = "UPDATE users SET balance = ? WHERE public_key = ?";
+
+        Double senderBalance = RedisUtil.getUserBalance(transaction.getSenderId());
+        if (senderBalance == null) {
+            throw new RuntimeException("Sender balance not found in Redis for transaction ID: " + transaction.getId());
+        }
+
+        UserDAO userDAO = new UserDAO();
+        Client receiver = userDAO.getClientByPublicKey(transaction.getReceiverKey());
+        if (receiver == null) {
+            throw new RuntimeException("Receiver not found for public key: " + transaction.getReceiverKey());
+        }
+
+        Double receiverBalance = RedisUtil.getUserBalance(receiver.getId());
+        if (receiverBalance == null) {
+            throw new RuntimeException("Receiver balance not found in Redis for transaction ID: " + transaction.getId());
+        }
+
+        // Calculate new balances
+        double newSenderBalance = senderBalance - transaction.getAmount();
+        double newReceiverBalance = receiverBalance + transaction.getAmount();
+
+        if (newSenderBalance < 0) {
+            throw new RuntimeException("Insufficient balance for sender ID: " + transaction.getSenderId());
+        }
 
         try {
+            // Begin database transaction
             connection.setAutoCommit(false);
 
             // Update sender's balance in the database
             try (PreparedStatement stmtSender = connection.prepareStatement(sqlUpdateSender)) {
-                stmtSender.setDouble(1, transaction.getAmount());
+                stmtSender.setDouble(1, newSenderBalance);
                 stmtSender.setInt(2, transaction.getSenderId());
                 stmtSender.executeUpdate();
             }
 
             // Update receiver's balance in the database
             try (PreparedStatement stmtReceiver = connection.prepareStatement(sqlUpdateReceiver)) {
-                stmtReceiver.setDouble(1, transaction.getAmount());
+                stmtReceiver.setDouble(1, newReceiverBalance);
                 stmtReceiver.setString(2, transaction.getReceiverKey());
                 stmtReceiver.executeUpdate();
             }
@@ -345,42 +370,9 @@ public class TransactionDAO {
             // Commit the database transaction
             connection.commit();
 
-            // Update Redis cache for both sender and receiver
-            try {
-                // Get current balances from database
-                double senderNewBalance = 0;
-                double receiverNewBalance = 0;
-                
-                try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE id = ?")) {
-                    stmt.setInt(1, transaction.getSenderId());
-                    ResultSet rs = stmt.executeQuery();
-                    if (rs.next()) {
-                        senderNewBalance = rs.getDouble("balance");
-                    }
-                }
-
-                try (PreparedStatement stmt = connection.prepareStatement("SELECT balance FROM users WHERE public_key = ?")) {
-                    stmt.setString(1, transaction.getReceiverKey());
-                    ResultSet rs = stmt.executeQuery();
-                    if (rs.next()) {
-                        receiverNewBalance = rs.getDouble("balance");
-                    }
-                }
-
-                // Update sender's balance in Redis (both by ID and public key)
-                RedisUtil.setUserBalance(transaction.getSenderId(), senderNewBalance);
-
-                // Update receiver's balance in Redis (both by ID and public key)
-                UserDAO userDAO = new UserDAO();
-                Client receiver = userDAO.getClientByPublicKey(transaction.getReceiverKey());
-                if (receiver != null) {
-                    RedisUtil.setUserBalance(receiver.getId(), receiverNewBalance);
-                }
-
-            } catch (Exception e) {
-                System.err.println("Failed to update Redis cache after transaction for ID: " + transaction.getId());
-                e.printStackTrace();
-            }
+            // Update Redis cache
+            RedisUtil.setUserBalance(transaction.getSenderId(), newSenderBalance);
+            RedisUtil.setUserBalance(receiver.getId(), newReceiverBalance);
 
             return true;
 
@@ -399,7 +391,24 @@ public class TransactionDAO {
             }
         }
     }
+    public boolean processTransactionBalances2(Transaction transaction) {
+        Double senderBalance = RedisUtil.getUserBalance(transaction.getSenderId());
+        if (senderBalance == null) {
+            throw new RuntimeException("Sender balance not found in Redis for transaction ID: " + transaction.getId());
+        }
 
+        UserDAO userDAO = new UserDAO();
+        Client receiver = userDAO.getClientByPublicKey(transaction.getReceiverKey());
+        if (receiver == null) {
+            throw new RuntimeException("Receiver not found for public key: " + transaction.getReceiverKey());
+        }
+        Double receiverBalance = RedisUtil.getUserBalance(receiver.getId());
+        double newSenderBalance = senderBalance - transaction.getAmount();
+        double newReceiverBalance = receiverBalance + transaction.getAmount();
+        RedisUtil.setUserBalance(transaction.getSenderId(), newSenderBalance);
+        RedisUtil.setUserBalance(receiver.getId(), newReceiverBalance);
+        return true;
+    }
     // Mettre à jour une transaction existante
     public void updateTransaction(Transaction transaction) {
         String sql = "UPDATE transactions SET sender_id = ?, receiver_key = ?, amount = ?, status = ?, block_id = ?, created_at = ?, signature = ? WHERE id = ?";
