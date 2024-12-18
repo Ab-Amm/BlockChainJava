@@ -54,8 +54,8 @@ public class AdminDashboardController {
     private ComboBox<Validator> validatorSelectComboBox;
     @FXML
     private TextField newBalanceField;
-    @FXML
-    private ComboBox<Validator> validatorDeleteComboBox;
+//    @FXML
+//    private ComboBox<Validator> validatorDeleteComboBox;
     @FXML
     private TableView<Map<String, Object>> transactionTable;
     @FXML
@@ -138,7 +138,7 @@ public class AdminDashboardController {
 
         // Configuration des ComboBox
         setupComboBox(validatorSelectComboBox);
-        setupComboBox(validatorDeleteComboBox);
+//        setupComboBox(validatorDeleteComboBox);
     }
 
     private void loadTransactionHistory() {
@@ -197,7 +197,7 @@ public class AdminDashboardController {
 
         // Mettre à jour les ComboBox
         validatorSelectComboBox.setItems(FXCollections.observableArrayList(validatorList));
-        validatorDeleteComboBox.setItems(FXCollections.observableArrayList(validatorList));
+//        validatorDeleteComboBox.setItems(FXCollections.observableArrayList(validatorList));
     }
 
     @FXML
@@ -390,29 +390,29 @@ public class AdminDashboardController {
         resetDynamicForms();
         deleteValidatorForm.setVisible(true);
         // Initialiser la ComboBox avec les validateurs existants
-        validatorDeleteComboBox.setItems(validatorList);
+//        validatorDeleteComboBox.setItems(validatorList);
     }
-
-    @FXML
-    public void handleDeleteValidator(ActionEvent actionEvent) {
-        Validator selectedValidator = validatorDeleteComboBox.getSelectionModel().getSelectedItem();
-        if (selectedValidator == null) {
-            showErrorMessage("Veuillez sélectionner un validateur !");
-            return;
-        }
-
-        try {
-            // Supprimer le validateur
-            userDAO.deleteValidator(selectedValidator);
-
-            // Rafraîchir la liste
-            updateValidatorList();
-            showInfoMessage("Validateur supprimé avec succès !");
-        } catch (Exception e) {
-            showErrorMessage("Une erreur est survenue lors de la suppression du validateur.");
-            e.printStackTrace();
-        }
-    }
+//
+//    @FXML
+//    public void handleDeleteValidator(ActionEvent actionEvent) {
+//        Validator selectedValidator = validatorDeleteComboBox.getSelectionModel().getSelectedItem();
+//        if (selectedValidator == null) {
+//            showErrorMessage("Veuillez sélectionner un validateur !");
+//            return;
+//        }
+//
+//        try {
+//            // Supprimer le validateur
+//            userDAO.deleteValidator(selectedValidator);
+//
+//            // Rafraîchir la liste
+//            updateValidatorList();
+//            showInfoMessage("Validateur supprimé avec succès !");
+//        } catch (Exception e) {
+//            showErrorMessage("Une erreur est survenue lors de la suppression du validateur.");
+//            e.printStackTrace();
+//        }
+//    }
 
 
 }
