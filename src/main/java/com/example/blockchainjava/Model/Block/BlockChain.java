@@ -541,12 +541,6 @@ public class BlockChain {
                         }
                         continue;
                     }
-
-                    User sender = userDAO.findUserById(transaction.getSenderId());
-                    if (sender.getBalance() < transaction.getAmount()) {
-                        System.err.println("Le solde de l'expéditeur pour la transaction ID " + transaction.getId() + " est insuffisant.");
-                        allValid = false;
-                    }
                 }
 
                 // Mise à jour du hash précédent

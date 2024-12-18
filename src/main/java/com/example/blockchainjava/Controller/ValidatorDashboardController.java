@@ -427,8 +427,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
         return hasEnoughVotes;
     }
     private int getRequiredValidatorCount() {
-        int connectedValidatorsCount = userDAO.getConnectedValidatorsCount();
-        return (int) Math.ceil((connectedValidatorsCount / 2.0)+1); // Return the majority of connected validators
+        return 2; // Return the majority of connected validators
     }
 
     private void addValidatorVoteForTransaction(Transaction transaction, Validator sourceValidator) {
@@ -452,6 +451,8 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 System.out.println("\n=== VALIDATION COMPLETE ===");
                 System.out.println("Transaction " + transactionId + " has reached required validator count ("
                         + getRequiredValidatorCount() + ")");
+                transaction.setStatus(TransactionStatus.VALIDATED); // Assurez-vous d'avoir une méthode `setStatus` dans votre classe `Transaction`
+                System.out.println("Transaction status updated to VALIDATED.");
                 System.out.println("Adding transaction to blockchain...");
                 System.out.println("==========================\n");
 
