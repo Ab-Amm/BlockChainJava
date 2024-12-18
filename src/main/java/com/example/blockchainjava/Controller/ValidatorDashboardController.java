@@ -296,6 +296,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
 
     private void updatePendingTransactionsTable() {
         pendingTransactionsTable.setItems(pendingTransactionsList); // Associe les données actualisées à la table
+        System.out.println("Pending transactions table updated." + pendingTransactionsList);
     }
 
     private void addTransactionToPendingTable(Transaction transaction) {
@@ -331,9 +332,9 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 ObservableList<Block> blockList = FXCollections.observableArrayList(blocks);
                 blockTable.setItems(blockList);
 
-                List<Transaction> pendingTransactions = blockchain.getPendingTransactions();
-                ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList(pendingTransactions);
-                pendingTransactionsTable.setItems(pendingTransactionsList);
+//                List<Transaction> pendingTransactions = blockchain.getPendingTransactions();
+//                ObservableList<Transaction> pendingTransactionsList = FXCollections.observableArrayList(pendingTransactions);
+//                pendingTransactionsTable.setItems(pendingTransactionsList);
 
                 updateUserTableView();
             }
@@ -722,7 +723,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             return response.statusCode() == 200;
         } catch (Exception e) {
             System.err.println("Validator " + validator.getId() + " is not available: " + e.getMessage());
-            e.printStackTrace();
+
             return false;
         }
     }
@@ -1056,7 +1057,6 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
             System.out.println("[Validator] Synchronization complete");
         } catch (Exception e) {
             System.err.println("[Validator] Error during synchronization: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
