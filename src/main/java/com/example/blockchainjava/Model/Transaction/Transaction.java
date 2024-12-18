@@ -150,6 +150,7 @@ public class Transaction implements Serializable {
     public static String generateDataToSign(Integer senderId, String receiverKey, double amount) {
         return senderId + receiverKey + amount;
     }
+
     public String getDataToSign() {
         return Transaction.generateDataToSign(senderId, receiverKey, amount);
     }

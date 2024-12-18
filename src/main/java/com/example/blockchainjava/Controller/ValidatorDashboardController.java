@@ -452,6 +452,7 @@ public class ValidatorDashboardController implements BlockchainUpdateObserver {
                 System.out.println("\n=== VALIDATION COMPLETE ===");
                 System.out.println("Transaction " + transactionId + " has reached required validator count ("
                         + getRequiredValidatorCount() + ")");
+                transaction.setStatus(TransactionStatus.VALIDATED);
                 System.out.println("Adding transaction to blockchain...");
                 System.out.println("==========================\n");
 
