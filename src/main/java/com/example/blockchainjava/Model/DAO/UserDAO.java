@@ -71,6 +71,55 @@ public class UserDAO {
 
         return null; // Return null if no client was found
     }
+    public Validator getValidatorByPublicKey(String publicKey) {
+//        // Check Redis cache first
+//        Double cachedBalance = RedisUtil.getBalanceByPublicKey(publicKey);
+//        if (cachedBalance != null) {
+//            System.out.println("Retrieved balance from Redis for public key: " + publicKey);
+//        }
+
+        // SQL query to get client info
+        String sql = """
+        SELECT id, username, password, balance, public_key, private_key
+        FROM users 
+        WHERE public_key = ? AND role = 'VALIDATOR'
+    """;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, publicKey);
+
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String username = resultSet.getString("username");
+                String password = resultSet.getString("password");
+                double balance = resultSet.getDouble("balance");
+                String retrievedPublicKey = resultSet.getString("public_key");
+                String privateKey = resultSet.getString("private_key");
+
+
+                Double cachedBalance = RedisUtil.getUserBalance(id);
+
+                if (cachedBalance == null) {
+                    RedisUtil.setUserBalance(id, balance);
+                    cachedBalance = RedisUtil.getUserBalance(id);
+                    System.out.println("Updated balance in Redis for public key: " + retrievedPublicKey);
+                }
+
+                // Create and return the Client object
+                return new Validator(id, username, password, cachedBalance, retrievedPublicKey, privateKey);
+            } else {
+                System.out.println("No client found with public key: " + publicKey);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to retrieve client data for public key: " + publicKey, e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+
+        return null; // Return null if no client was found
+    }
 
 
     public Validator getValidatorData(int id) {

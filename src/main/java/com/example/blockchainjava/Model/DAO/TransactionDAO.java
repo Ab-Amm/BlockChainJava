@@ -3,6 +3,7 @@ package com.example.blockchainjava.Model.DAO;
 import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import com.example.blockchainjava.Model.User.Client;
+import com.example.blockchainjava.Model.User.Validator;
 import com.example.blockchainjava.Util.RedisUtil;
 
 import java.sql.*;
@@ -354,6 +355,76 @@ public class TransactionDAO {
 
         UserDAO userDAO = new UserDAO();
         Client receiver = userDAO.getClientByPublicKey(transaction.getReceiverKey());
+        if (receiver == null) {
+            throw new RuntimeException("Receiver not found for public key: " + transaction.getReceiverKey());
+        }
+
+        Double receiverBalance = RedisUtil.getUserBalance(receiver.getId());
+        if (receiverBalance == null) {
+            throw new RuntimeException("Receiver balance not found in Redis for transaction ID: " + transaction.getId());
+        }
+
+        // Calculate new balances
+        double newSenderBalance = senderBalance - transaction.getAmount();
+        double newReceiverBalance = receiverBalance + transaction.getAmount();
+
+        if (newSenderBalance < 0) {
+            throw new RuntimeException("Insufficient balance for sender ID: " + transaction.getSenderId());
+        }
+
+        try {
+            // Begin database transaction
+            connection.setAutoCommit(false);
+
+            // Update sender's balance in the database
+            try (PreparedStatement stmtSender = connection.prepareStatement(sqlUpdateSender)) {
+                stmtSender.setDouble(1, newSenderBalance);
+                stmtSender.setInt(2, transaction.getSenderId());
+                stmtSender.executeUpdate();
+            }
+
+            // Update receiver's balance in the database
+            try (PreparedStatement stmtReceiver = connection.prepareStatement(sqlUpdateReceiver)) {
+                stmtReceiver.setDouble(1, newReceiverBalance);
+                stmtReceiver.setString(2, transaction.getReceiverKey());
+                stmtReceiver.executeUpdate();
+            }
+
+            // Commit the database transaction
+            connection.commit();
+
+            // Update Redis cache
+            RedisUtil.setUserBalance(transaction.getSenderId(), newSenderBalance);
+            RedisUtil.setUserBalance(receiver.getId(), newReceiverBalance);
+
+            return true;
+
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                throw new RuntimeException("Failed to rollback after an error.", rollbackEx);
+            }
+            throw new RuntimeException("Failed to process transaction balances for transaction ID: " + transaction.getId(), e);
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException ex) {
+                throw new RuntimeException("Failed to reset auto-commit mode.", ex);
+            }
+        }
+    }
+    public boolean processTransactionBalances3(Transaction transaction) {
+        String sqlUpdateSender = "UPDATE users SET balance = ? WHERE id = ?";
+        String sqlUpdateReceiver = "UPDATE users SET balance = ? WHERE public_key = ?";
+
+        Double senderBalance = RedisUtil.getUserBalance(transaction.getSenderId());
+        if (senderBalance == null) {
+            throw new RuntimeException("Sender balance not found in Redis for transaction ID: " + transaction.getId());
+        }
+
+        UserDAO userDAO = new UserDAO();
+        Validator receiver = userDAO.getValidatorByPublicKey(transaction.getReceiverKey());
         if (receiver == null) {
             throw new RuntimeException("Receiver not found for public key: " + transaction.getReceiverKey());
         }

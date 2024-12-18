@@ -294,7 +294,7 @@ public class AdminDashboardController {
             System.out.println("Transaction admin : " + transaction);
             // Ajout du bloc à la blockchain
             transactionDAO.saveTransaction(transaction);
-            blockchain.addBlock(transaction, signature);
+            blockchain.addBlock1(transaction, signature);
 
             // Mise à jour du solde du validateur
             selectedValidator.setBalance(selectedValidator.getBalance() + adjustmentAmount);

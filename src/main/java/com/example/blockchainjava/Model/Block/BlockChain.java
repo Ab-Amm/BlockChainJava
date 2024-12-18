@@ -148,6 +148,41 @@ public class BlockChain {
             }
         }
     }
+    public synchronized Block addBlock1(Transaction transaction, String validatorSignature) {
+        validateBlockParameters(transaction, validatorSignature);
+
+        synchronized(chainLock) {
+            String previousHash = chain.isEmpty() ? "0" : chain.getLast().getCurrentHash();
+            int newBlockId = generateNewBlockId();
+            Block newBlock = new Block(newBlockId, previousHash, transaction, validatorSignature);
+
+            // Add to chain and increment version
+            chain.add(newBlock);
+            chainVersion++;
+
+            try {
+                // Save to both database and local storage
+                blockDAO.saveBlock(newBlock);
+
+                updateTransactionWithBlockIdAndStatus(transaction, newBlock);
+
+                // Update user balances
+                TransactionDAO transactionDAO = new TransactionDAO();
+                boolean balancesUpdated = transactionDAO.processTransactionBalances3(transaction);
+                if (!balancesUpdated) {
+                    throw new RuntimeException("Failed to update user balances after adding block.");
+                }
+                saveToLocalStorage();
+                notifyObservers();
+                return newBlock;
+            } catch (Exception e) {
+                // Rollback on failure
+                chain.remove(chain.size() - 1);
+                chainVersion--;
+                throw new RuntimeException("Failed to add block: " + e.getMessage(), e);
+            }
+        }
+    }
 
     private void updateTransactionWithBlockIdAndStatus(Transaction transaction, Block newBlock) {
         System.out.println("voici bach necrasiw");
