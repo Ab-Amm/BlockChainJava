@@ -644,7 +644,27 @@ public class UserDAO {
             throw new RuntimeException("Échec de la mise à jour du solde pour le validateur : " + user.getUsername(), e);
         }
     }
+    public boolean updateUserBalance1(User user, double newBalance) {
+        String sql = "UPDATE users SET balance = ? WHERE username = ? AND role = 'VALIDATOR'";
 
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setDouble(1, newBalance);
+            stmt.setString(2, user.getUsername());
+
+            int rowsUpdated = stmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                // Update Redis cache
+                RedisUtil.setUserBalance(user.getId(), newBalance);
+                System.out.println("Le solde du validateur " + user.getUsername() + " a été mis à jour.");
+                return true;
+            } else {
+                System.out.println("Aucun validateur trouvé avec le nom d'utilisateur : " + user.getUsername());
+                return false;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Échec de la mise à jour du solde pour le validateur : " + user.getUsername(), e);
+        }
+    }
     public void updateAdminBalance(Admin admin, double newBalance) {
         String sql = "UPDATE users SET balance = ? WHERE id = ? AND role = 'ADMIN'";
 
@@ -895,23 +915,39 @@ public class UserDAO {
     }
 
     public List<Validator> getAllValidators() {
-        List<Validator> validators = new ArrayList<>();
-        String sql = "SELECT * FROM validators";
+        List<Validator> clientList = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role = 'VALIDATOR'";
+
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             ResultSet rs = stmt.executeQuery();
+
             while (rs.next()) {
-                Validator validator = new Validator(
-                    rs.getInt("id"),
-                    rs.getString("username"),
-                    rs.getDouble("balance")
-                );
-                validator.setActive(rs.getBoolean("is_active"));
-                validators.add(validator);
+                int userId = rs.getInt("id");
+                String username = rs.getString("username");
+                String role = rs.getString("role");
+                String password = rs.getString("password");
+                String publicKey = rs.getString("public_key");
+                String privateKey = rs.getString("private_key");
+
+                // Fetch balance from Redis if available, otherwise fallback to DB
+                Double balance = RedisUtil.getUserBalance(userId);
+                if (balance == null) {
+                    balance = rs.getDouble("balance");
+                    RedisUtil.setUserBalance(userId, balance); // Cache the balance for future queries
+                }
+
+                // Create and add the Client object
+                Validator client = new Validator(userId, username, password, balance, publicKey, privateKey);
+                clientList.add(client);
             }
-            return validators;
-        } catch (SQLException | NoSuchAlgorithmException e) {
-            System.err.println("[Database] ❌ Error getting all validators: " + e.getMessage());
-            throw new RuntimeException("Failed to get all validators", e);
+
+        } catch (SQLException e) {
+            System.err.println("SQLException: " + e.getMessage());
+            throw new RuntimeException("Failed to load all clients", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
+
+        return clientList;
     }
 }

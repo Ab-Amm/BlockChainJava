@@ -8,6 +8,7 @@ import com.example.blockchainjava.Model.Transaction.Transaction;
 import com.example.blockchainjava.Model.Transaction.TransactionStatus;
 import com.example.blockchainjava.Model.User.Client;
 import com.example.blockchainjava.Model.User.User;
+import com.example.blockchainjava.Model.User.Validator;
 import com.example.blockchainjava.Observer.BlockchainUpdateObserver;
 import com.example.blockchainjava.Util.Network.SocketServer;
 import com.example.blockchainjava.Util.RedisUtil;
@@ -1126,6 +1127,55 @@ public class BlockChain {
                 // Update database
                 try {
                     userDAO.updateUserBalance(client, calculatedBalance);
+                } catch (Exception e) {
+                    System.err.println("Failed to update database balance for client ID: " + client.getId());
+                    e.printStackTrace();
+                }
+
+                // Update Redis cache
+                try {
+                    RedisUtil.setUserBalance(client.getId(), calculatedBalance);
+                } catch (Exception e) {
+                    System.err.println("Failed to update Redis cache for client ID: " + client.getId());
+                    e.printStackTrace();
+                }
+
+                // Log success
+                System.out.println("Updated balance for client " + client.getUsername() +
+                        " (ID: " + client.getId() + "): " + calculatedBalance);
+            }
+        } catch (Exception e) {
+            System.err.println("An error occurred while updating client balances:");
+            e.printStackTrace();
+        }
+    }
+    public void updateAllValidatorBalances() {
+        try {
+            // Retrieve all clients from the database
+            List<Validator> validators = userDAO.getAllValidators();
+            System.out.println("voici");
+            System.out.println(validators);
+
+            for (Validator client : validators) {
+                double calculatedBalance = 0.0;
+
+                // Calculate the balance from the blockchain
+                for (Block block : chain) {
+                    Transaction transaction = block.getTransaction();
+                    if (transaction.getSenderId() == client.getId()) {
+                        calculatedBalance -= transaction.getAmount();
+                    }
+                    if (transaction.getReceiverKey().equals(client.getPublicKey())) {
+                        calculatedBalance += transaction.getAmount();
+                    }
+                }
+
+                // Update both the database and Redis cache
+                client.setBalance(calculatedBalance);
+
+                // Update database
+                try {
+                    userDAO.updateUserBalance1(client, calculatedBalance);
                 } catch (Exception e) {
                     System.err.println("Failed to update database balance for client ID: " + client.getId());
                     e.printStackTrace();
