@@ -49,15 +49,15 @@
                     </TableView>
                     <HBox spacing="10" style="-fx-padding: 10;">
                         <Button text="Validate Selected" onAction="#validateTransaction"
-                                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+                                style="-fx-background-color: #3B1E54; -fx-text-fill: white;"/>
                     </HBox>
                 </VBox>
             </Tab>
 
             <!-- Onglet Gérer Clients -->
-            <Tab text="Gérer Clients">
+            <Tab text="Manage Clients">
                 <VBox spacing="10">
-                    <Label text="Gérer Clients" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
+                    <Label text="Manage Clients" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-padding: 10;"/>
                     <TableView fx:id="userTable" VBox.vgrow="ALWAYS">
                         <columns>
                             <TableColumn fx:id="id" text="Client ID"/>
@@ -81,10 +81,6 @@
 
     <bottom>
         <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 10;">
-            <Label text="Status: " style="-fx-font-weight: bold;"/>
-            <Label fx:id="statusLabel"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Label text="Connected Peers: " style="-fx-font-weight: bold;"/>
             <Label fx:id="peerCountLabel"/>
             <Label fx:id="connectedValidatorsLabel" text="Connected Validators: 0" style="-fx-font-weight: bold;"/>
             <Label fx:id="connectedClientsLabel" text="Connected Clients: 0" style="-fx-font-weight: bold;"/>
