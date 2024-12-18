@@ -319,6 +319,96 @@ public class BlockChain {
         return loadedBlocks;  // You can also return loadedTransactions if needed
     }
 
+    public List<Transaction> loadFromLocalStorage1() {
+
+        System.out.println("[BlockChain] 📂 Starting blockchain load operation...");
+        try {
+            Path storageDir = Paths.get(System.getProperty("user.dir"), STORAGE_DIR);
+            if (!Files.exists(storageDir)) {
+                System.out.println("[BlockChain] ℹ️ No local storage found. Starting fresh.");
+                return loadedTransactions;  // Returning empty list as no blockchain files are found
+            }
+
+            System.out.println("[BlockChain] 🔍 Searching for blockchain files...");
+            // Find latest version file
+            Optional<Path> latestFile = Files.list(storageDir)
+                    .filter(path -> path.toString().matches(".*blockchain_v\\d+\\.json$"))
+                    .max((p1, p2) -> {
+                        long v1 = extractVersion(p1.getFileName().toString());
+                        long v2 = extractVersion(p2.getFileName().toString());
+                        return Long.compare(v1, v2);
+                    });
+
+            if (latestFile.isPresent()) {
+                System.out.println("[BlockChain] 📄 Found latest blockchain file: " + latestFile.get().getFileName());
+                String jsonContent = Files.readString(latestFile.get(), StandardCharsets.UTF_8);
+
+                // Parse version
+                Pattern versionPattern = Pattern.compile("\"version\":\\s*(\\d+)");
+                Matcher versionMatcher = versionPattern.matcher(jsonContent);
+                if (versionMatcher.find()) {
+                    this.chainVersion = Long.parseLong(versionMatcher.group(1));
+                    System.out.println("[BlockChain] 📊 Found blockchain version: " + chainVersion);
+                }
+
+                System.out.println("[BlockChain] 🔄 Starting block parsing...");
+                // Parse blocks
+                Pattern blockPattern = Pattern.compile("\\{\\s*\"blockId\":\\s*(\\d+),\\s*\"previousHash\":\\s*\"([^\"]+)\",\\s*\"currentHash\":\\s*\"([^\"]+)\",\\s*\"timestamp\":\\s*\"([^\"]+)\",\\s*\"validatorSignature\":\\s*\"([^\"]+)\",\\s*\"transaction\":\\s*\\{([^}]+)\\}\\s*\\}");
+                Matcher blockMatcher = blockPattern.matcher(jsonContent);
+
+                int blockCount = 0;
+                while (blockMatcher.find()) {
+                    blockCount++;
+                    System.out.println("[BlockChain] 📦 Parsing block " + blockCount);
+
+                    int blockId = Integer.parseInt(blockMatcher.group(1));
+                    String previousHash = blockMatcher.group(2);
+                    String currentHash = blockMatcher.group(3);
+                    String timestamp = blockMatcher.group(4);
+                    String validatorSignature = blockMatcher.group(5);
+                    String transactionJson = blockMatcher.group(6);
+
+                    System.out.println("[BlockChain] 💳 Parsing transaction for block " + blockId);
+                    // Parse transaction
+                    Pattern txPattern = Pattern.compile("\"id\":\\s*(\\d+),\\s*\"senderId\":\\s*(\\d+),\\s*\"receiverKey\":\\s*\"([^\"]+)\",\\s*\"amount\":\\s*([\\d.]+),\\s*\"status\":\\s*\"([^\"]+)\",\\s*\"blockId\":\\s*(\\d+),\\s*\"createdAt\":\\s*\"([^\"]+)\",\\s*\"signature\":\\s*\"([^\"]*)\"");
+                    Matcher txMatcher = txPattern.matcher(transactionJson);
+
+                    if (txMatcher.find()) {
+                        Transaction transaction = new Transaction();
+                        transaction.setId(Integer.parseInt(txMatcher.group(1)));
+                        transaction.setSenderId(Integer.parseInt(txMatcher.group(2)));
+                        transaction.setReceiverKey(txMatcher.group(3));
+                        transaction.setAmount(Double.parseDouble(txMatcher.group(4)));
+                        transaction.setStatus(TransactionStatus.valueOf(txMatcher.group(5)));
+                        transaction.setBlockId(Integer.parseInt(txMatcher.group(6)));
+                        transaction.setCreatedAt(LocalDateTime.parse(txMatcher.group(7)));
+                        transaction.setSignature(txMatcher.group(8));
+
+                        Block block = new Block(blockId, previousHash, transaction, validatorSignature);
+                        block.setCurrentHash(currentHash);
+                        block.setTimestamp(LocalDateTime.parse(timestamp));
+
+                        // Add to lists instead of chain
+                        loadedBlocks.add(block);
+                        loadedTransactions.add(transaction);
+                        System.out.println("[BlockChain] ✅ Successfully added block " + blockId + " and its transaction to loaded lists");
+                    }
+                }
+
+                System.out.println("[BlockChain] 🎉 Successfully loaded blockchain version " + chainVersion +
+                        " with " + loadedBlocks.size() + " blocks and " + loadedTransactions.size() + " transactions");
+            } else {
+                System.out.println("[BlockChain] ℹ️ No blockchain files found. Starting fresh.");
+            }
+        } catch (IOException e) {
+            System.err.println("[BlockChain] ❌ Error loading blockchain: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Returning the transactions list instead of blocks
+        return loadedTransactions;
+    }
+
     private void updateValidatorVersion(long version) {
         String updateSql  = "UPDATE validators SET pending_update_version = ?";
 
@@ -652,7 +742,8 @@ public class BlockChain {
     }
     private Transaction loadLocalTransactionById(int transactionId) {
         // Appel à la méthode pour charger les transactions depuis le stockage local
-        loadFromLocalStorage();
+        loadFromLocalStorage1();
+        System.out.println("[BlockChain] 📦 transactions from local storage..." + loadedTransactions.size());
 
         // Parcours la liste des transactions chargées pour trouver celle correspondant à l'ID
         for (Transaction transaction : loadedTransactions) {

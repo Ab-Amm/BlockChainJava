@@ -90,6 +90,7 @@ public class Validator extends User {
         this.publicKey=publicKey;
         this.privateKey=privateKey;
     }
+
     public Validator(int id,String username, String password , double balance , String publicKey , String privateKey ) throws NoSuchAlgorithmException {
         super(id , username, password,balance, UserRole.VALIDATOR ,publicKey ,privateKey);
         // this.balance = balance; // Default balance is 0
