@@ -49,7 +49,7 @@
                     </TableView>
                     <HBox spacing="10" style="-fx-padding: 10;">
                         <Button text="Validate Selected" onAction="#validateTransaction"
-                                style="-fx-background-color: #3B1E54; -fx-text-fill: white;"/>
+                                style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
                     </HBox>
                 </VBox>
             </Tab>
